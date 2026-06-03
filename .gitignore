@@ -6,7 +6,6 @@ target/
 # Gradle
 .gradle/
 gradle-app.setting
-!gradle-wrapper.jar
 !gradle-wrapper.properties
 **/build/
 buildSrc/build/
@@ -42,6 +41,7 @@ local.properties
 *.war
 *.ear
 *.class
+!gradle/wrapper/gradle-wrapper.jar
 
 # Logs
 *.log
