@@ -1,5 +1,6 @@
 plugins {
   id("trace-weave.conventions")
+  id("trace-weave.publish")
 }
 
 val kotlinVersion: String by project
