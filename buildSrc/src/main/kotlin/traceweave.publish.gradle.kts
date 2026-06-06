@@ -5,13 +5,11 @@ plugins {
 mavenPublishing {
     publishToMavenCentral()
 
-    // Sign release publications only. Snapshots don't need signatures, and unsigned local/CI-build
-    // publishing (e.g. to the test-repo consumed by the gradle-plugin functional tests) must keep
-    // working without a key. So: sign only a non-SNAPSHOT version when a signing key is available.
-    val isSnapshot = version.toString().endsWith("SNAPSHOT")
+    // Sign whenever a signing key is available (snapshots and releases alike). Unsigned local/CI
+    // publishing (e.g. to the test-repo for the functional tests) keeps working without a key.
     val hasSigningKey = providers.gradleProperty("signingInMemoryKey").isPresent ||
         System.getenv("ORG_GRADLE_PROJECT_signingInMemoryKey") != null
-    if (!isSnapshot && hasSigningKey) {
+    if (hasSigningKey) {
         signAllPublications()
     }
 
