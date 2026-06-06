@@ -21,10 +21,14 @@ jobs:
       - checkout
       - run:
           name: Deploy to Maven Central
-          # Requires ORG_GRADLE_PROJECT_mavenCentralUsername/Password and the signing key env vars
-          # (ORG_GRADLE_PROJECT_signingInMemoryKey [+ ...KeyPassword]) — signing is gated on the
-          # key being present, not on CI.
-          command: ./gradlew publishAllPublicationsToMavenCentralRepository
+          # Requires project env vars: ORG_GRADLE_PROJECT_mavenCentralUsername/Password,
+          # ORG_GRADLE_PROJECT_signingInMemoryKeyPassword, and SIGNING_KEY_B64 — the ASCII-armored
+          # GPG private key base64-encoded into a single line (`gpg --armor --export-secret-keys
+          # <KEY_ID> | base64 -w0`). We decode it here so the in-memory key keeps real newlines.
+          # Signing is gated on a non-SNAPSHOT version + key presence, not on CI.
+          command: |
+            export ORG_GRADLE_PROJECT_signingInMemoryKey="$(echo "$SIGNING_KEY_B64" | base64 -d)"
+            ./gradlew publishAllPublicationsToMavenCentralRepository
       - run:
           name: Deploy to Gradle Plugin Portal
           command: ./gradlew :gradle-plugin:publishPlugins -Pgradle.publish.key=$GRADLE_PUBLISH_KEY -Pgradle.publish.secret=$GRADLE_PUBLISH_SECRET
