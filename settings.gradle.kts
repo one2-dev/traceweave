@@ -1,3 +1,3 @@
-rootProject.name = "trace-weave"
+rootProject.name = "traceweave"
 
-include(":runtime", ":compiler", ":gradle-plugin", ":tests")
+include(":runtime", ":compiler", ":gradle-plugin")
