@@ -9,29 +9,20 @@ jobs:
       - checkout
       - run:
           name: Build
-          # `build` also runs :gradle-plugin:test (the TestKit functional test against the real
-          # plugin), which publishes :runtime/:compiler to build/test-repo unsigned (no key here).
-          command: ./gradlew clean build
+          # Same script as release, but `local` publishes to ~/.m2 instead of Maven Central.
+          command: bash build.sh local
 
   publish:
     docker:
       - image: cimg/openjdk:17.0
-    resource_class: small
+    resource_class: medium
     steps:
       - checkout
       - run:
-          name: Deploy to Maven Central
-          # Requires project env vars: ORG_GRADLE_PROJECT_mavenCentralUsername/Password,
-          # ORG_GRADLE_PROJECT_signingInMemoryKeyPassword, and SIGNING_KEY_B64 — the ASCII-armored
-          # GPG private key base64-encoded into a single line (`gpg --armor --export-secret-keys
-          # <KEY_ID> | base64 -w0`). We decode it here so the in-memory key keeps real newlines.
-          # Signing is gated on a non-SNAPSHOT version + key presence, not on CI.
-          command: |
-            export ORG_GRADLE_PROJECT_signingInMemoryKey="$(echo "$SIGNING_KEY_B64" | base64 -d)"
-            ./gradlew publishAllPublicationsToMavenCentralRepository
-      - run:
-          name: Deploy to Gradle Plugin Portal
-          command: ./gradlew :gradle-plugin:publishPlugins -Pgradle.publish.key=$GRADLE_PUBLISH_KEY -Pgradle.publish.secret=$GRADLE_PUBLISH_SECRET
+          name: Build & Publish
+          # build.sh runs `clean build` then publishes. Reads friendly env vars
+          # (GRADLE_PLUGIN_*, MAVEN_CENTRAL_*) and maps them to the gradle names internally.
+          command: bash build.sh
 
 workflows:
   build-test-deploy:
@@ -43,10 +34,7 @@ workflows:
                 - master
                 - develop
                 - pull/*
-                - /^release-.*/
       - publish:
-          requires:
-            - build
           filters:
             branches:
               only: /^release-.*/
