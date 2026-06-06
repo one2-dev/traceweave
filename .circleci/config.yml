@@ -8,21 +8,15 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build
-          # Same script as release, but `local` publishes to ~/.m2 instead of Maven Central.
-          command: bash build.sh local
-
-  publish:
-    docker:
-      - image: cimg/openjdk:17.0
-    resource_class: medium
-    steps:
-      - checkout
-      - run:
           name: Build & Publish
-          # build.sh runs `clean build` then publishes. Reads friendly env vars
-          # (GRADLE_PLUGIN_*, MAVEN_CENTRAL_*) and maps them to the gradle names internally.
-          command: bash build.sh
+          # release/v* publishes to Maven Central + Plugin Portal; every other branch publishes
+          # to ~/.m2 (`local`). One job covers all branches.
+          command: |
+            if [[ "$CIRCLE_BRANCH" == release/v* ]]; then
+              bash build.sh
+            else
+              bash build.sh local
+            fi
 
 workflows:
   build-test-deploy:
@@ -34,7 +28,4 @@ workflows:
                 - master
                 - develop
                 - pull/*
-      - publish:
-          filters:
-            branches:
-              only: /^release-.*/
+                - /^release\/v.*/
