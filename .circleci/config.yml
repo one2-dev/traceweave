@@ -9,10 +9,9 @@ jobs:
       - checkout
       - run:
           name: Build
+          # `build` also runs :gradle-plugin:test (the TestKit functional test against the real
+          # plugin), which publishes :runtime/:compiler to build/test-repo unsigned (no key here).
           command: ./gradlew clean build
-      - run:
-          name: Test
-          command: ./gradlew test
 
   publish:
     docker:
@@ -22,6 +21,9 @@ jobs:
       - checkout
       - run:
           name: Deploy to Maven Central
+          # Requires ORG_GRADLE_PROJECT_mavenCentralUsername/Password and the signing key env vars
+          # (ORG_GRADLE_PROJECT_signingInMemoryKey [+ ...KeyPassword]) — signing is gated on the
+          # key being present, not on CI.
           command: ./gradlew publishAllPublicationsToMavenCentralRepository
       - run:
           name: Deploy to Gradle Plugin Portal

@@ -1,4 +1,4 @@
-# trace-weave
+# traceweave
 
 Kotlin compiler IR plugin that reconstructs coroutine call chains in exception stack traces.
 
@@ -28,9 +28,9 @@ otherwise be invisible reappear automatically.
 
 | Module | Artifact | Purpose |
 |---|---|---|
-| `:runtime` | `dev.one2.traceweave:trace-weave-runtime` | `@TraceWeave` annotation + `insertCoroutineFrame()` |
-| `:compiler` | `dev.one2.traceweave:trace-weave-compiler` | Kotlin IR compiler plugin |
-| `:gradle-plugin` | `dev.one2.traceweave:trace-weave-gradle-plugin` | Gradle plugin (`dev.one2.trace-weave`) |
+| `:runtime` | `dev.one2.traceweave:runtime` | `@TraceWeave` annotation + `insertCoroutineFrame()` |
+| `:compiler` | `dev.one2.traceweave:compiler` | Kotlin IR compiler plugin |
+| `:gradle-plugin` | `dev.one2.traceweave:gradle-plugin` | Gradle plugin (`dev.one2.traceweave`) |
 
 ## Usage
 
@@ -39,11 +39,11 @@ Add the dependency and apply the Gradle plugin:
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("dev.one2.trace-weave")
+    id("dev.one2.traceweave")
 }
 
 dependencies {
-    implementation("dev.one2.traceweave:trace-weave-runtime:<version>")
+    implementation("dev.one2.traceweave:runtime:<version>")
 }
 ```
 
@@ -99,7 +99,7 @@ It is currently tested and known to work with **Kotlin 2.3.0**. Other versions m
 [DeCoroutinator](https://github.com/Anamorphosee/stacktrace-decoroutinator) solves the same problem
 and also supports compile-time transformation. The difference is scope: DeCoroutinator is a thorough
 solution with multiple integration modes, full continuation-chain reconstruction, and global coverage.
-trace-weave is intentionally minimal: opt-in per class, no runtime machinery, does its job and stops.
+traceweave is intentionally minimal: opt-in per class, no runtime machinery, does its job and stops.
 If you need always-on full reconstruction, use DeCoroutinator.
 
 ## Why this exists

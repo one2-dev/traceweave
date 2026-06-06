@@ -7,15 +7,6 @@ repositories {
     mavenCentral()
 }
 
-gradlePlugin {
-    plugins {
-        create("traceWeave") {
-            id = "dev.one2.trace-weave"
-            implementationClass = "dev.one2.traceweave.gradle.TraceWeavePlugin"
-        }
-    }
-}
-
 val kotlinVersion: String by project
 val ktlintVersion: String by project
 

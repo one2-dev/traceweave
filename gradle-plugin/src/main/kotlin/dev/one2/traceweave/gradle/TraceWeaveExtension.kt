@@ -1,7 +1,7 @@
 package dev.one2.traceweave.gradle
 
 /**
- * DSL for the `dev.one2.trace-weave` plugin:
+ * DSL for the `dev.one2.traceweave` plugin:
  * ```
  * traceWeave {
  *   classes = listOf("a.b.c", "a.b.c.*", "x.y.Z")
