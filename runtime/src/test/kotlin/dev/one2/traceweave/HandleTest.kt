@@ -1,5 +1,10 @@
 package dev.one2.traceweave
 
+import dev.one2.traceweave.config.configure
+import dev.one2.traceweave.config.resetForTest
+import dev.one2.traceweave.constant.Configuration
+import dev.one2.traceweave.handler.handle
+import dev.one2.traceweave.mode.Mode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.CyclicBarrier
@@ -27,9 +32,9 @@ class HandleTest {
 
   @Test
   fun inertPassThroughWhenNotConfigured() {
-    val error = RuntimeException("boom")
+    val error = TestHelper.error()
     val before = error.stackTrace.toList()
-    val result = handle(error, "Outer", "outer", "Test.kt", 10)
+    val result = TestHelper.handleDefault(error)
     assertSame(error, result)
     assertEquals(before, error.stackTrace.toList())
   }
@@ -37,18 +42,19 @@ class HandleTest {
   @Test
   fun inplaceInsertsFrameOnceConfigured() {
     configure { mode = Mode.INPLACE }
-    val error = RuntimeException("boom")
-    val result = handle(error, "Outer", "outer", "Test.kt", 10)
+    val error = TestHelper.error()
+    val result = TestHelper.handleDefault(error)
     assertSame(error, result)
-    assertTrue(error.stackTrace.any { it.className == "Outer" && it.methodName == "outer" })
+    assertTrue(error.stackTrace.any { it.className == TestHelper.CLASS && it.methodName == TestHelper.METHOD })
   }
 
   @Test
   fun activatesFromSystemProperty() {
-    System.setProperty(PROP_MODE, Mode.INPLACE.name.lowercase())
-    val error = RuntimeException("boom")
-    handle(error, "Outer", "outer", "Test.kt", 10)
-    assertTrue(error.stackTrace.any { it.methodName == "outer" })
+    System.setProperty(Configuration.PROP_ENABLED, true.toString())
+    System.setProperty(Configuration.PROP_MODE, Mode.INPLACE.name.lowercase())
+    val error = TestHelper.error()
+    TestHelper.handleDefault(error)
+    assertTrue(error.stackTrace.any { it.methodName == TestHelper.METHOD })
   }
 
   @Test
@@ -56,7 +62,7 @@ class HandleTest {
     configure { mode = Mode.INPLACE }
     val error = CancellationException("cancel")
     val before = error.stackTrace.toList()
-    val result = handle(error, "Outer", "outer", "Test.kt", 10)
+    val result = TestHelper.handleDefault(error)
     assertSame(error, result)
     assertEquals(before, error.stackTrace.toList())
   }
@@ -64,7 +70,7 @@ class HandleTest {
   @Test
   fun nestedFramesKeepCalleeToCallerOrder() {
     configure { mode = Mode.INPLACE }
-    val error = RuntimeException("boom")
+    val error = TestHelper.error()
     handle(error, "C", "bot", "Test.kt", 1)
     handle(error, "C", "middle", "Test.kt", 2)
     handle(error, "C", "top", "Test.kt", 3)
@@ -78,7 +84,7 @@ class HandleTest {
   @Test
   fun repeatedIdenticalFrameCollapses() {
     configure { mode = Mode.INPLACE }
-    val error = RuntimeException("boom")
+    val error = TestHelper.error()
     repeat(5) { handle(error, "C", "loop", "Test.kt", 7) }
     val count = error.stackTrace.count { it.className == "C" && it.methodName == "loop" }
     assertEquals(1, count)
@@ -87,20 +93,20 @@ class HandleTest {
   @Test
   fun frameFromAnotherSourceIsNotDuplicated() {
     configure { mode = Mode.INPLACE }
-    val error = RuntimeException("boom")
+    val error = TestHelper.error()
     // Simulate a frame already inserted by coroutine recovery / DebugProbes near the top.
-    val existing = StackTraceElement("Outer", "outer", "Test.kt", 10)
+    val existing = StackTraceElement(TestHelper.CLASS, TestHelper.METHOD, TestHelper.FILE, TestHelper.LINE)
     val original = error.stackTrace
     error.stackTrace = arrayOf(original.first(), existing) + original.drop(1)
-    handle(error, "Outer", "outer", "Test.kt", 10)
-    val count = error.stackTrace.count { it.className == "Outer" && it.methodName == "outer" }
+    TestHelper.handleDefault(error)
+    val count = error.stackTrace.count { it.className == TestHelper.CLASS && it.methodName == TestHelper.METHOD }
     assertEquals(1, count)
   }
 
   @Test
   fun concurrentHandleLosesNoDistinctFrame() {
     configure { mode = Mode.INPLACE }
-    val error = RuntimeException("boom")
+    val error = TestHelper.error()
     val threads = 16
     val barrier = CyclicBarrier(threads)
     val pool = Executors.newFixedThreadPool(threads)
@@ -124,12 +130,12 @@ class HandleTest {
   fun realCoroutineReconstructsCallerFrame() =
     runBlocking {
       configure { mode = Mode.INPLACE }
-      val error = runCatching { tracedOuter() }.exceptionOrNull()!!
+      val error = requireNotNull(runCatching { tracedOuter() }.exceptionOrNull())
       assertTrue(error.stackTrace.any { it.className == "Outer" && it.methodName == "tracedOuter" })
     }
 
   private fun clearTraceweaveProperties() {
-    val names = System.getProperties().stringPropertyNames().filter { it.startsWith(PROP_PREFIX) }
+    val names = System.getProperties().stringPropertyNames().filter { it.startsWith(Configuration.PROP_PREFIX) }
     names.forEach { System.clearProperty(it) }
   }
 }
@@ -138,7 +144,7 @@ class HandleTest {
 // suspension point, with a hand-written catch that routes through handle(). No compiler plugin.
 private suspend fun failingInner(): Int {
   delay(1)
-  throw IllegalStateException("boom")
+  throw IllegalStateException(TestHelper.MESSAGE)
 }
 
 private suspend fun tracedOuter(): Int =

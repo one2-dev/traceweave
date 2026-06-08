@@ -8,3 +8,6 @@ insert_final_newline = true
 
 [*.{kt,kts}]
 indent_size = 2
+max_line_length = 120
+# Keep a multi-line expression body on its own line instead of collapsing it onto the signature.
+ktlint_function_signature_body_expression_wrapping = multiline

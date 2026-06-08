@@ -31,14 +31,16 @@ class TraceWeaveCommandLineProcessor : CommandLineProcessor {
       CliOption(
         optionName = "tracedPrefixes",
         valueDescription = "<fqn-prefix>",
-        description = "Package or class FQN prefix whose functions are traced (besides @TraceWeave). Repeat for multiple.",
+        description =
+          "Package or class FQN prefix whose functions are traced (besides @TraceWeave). Repeat for multiple.",
         required = false,
         allowMultipleOccurrences = true,
       ),
       CliOption(
         optionName = "excludedPrefixes",
         valueDescription = "<fqn-prefix>",
-        description = "Package or class FQN prefix excluded from tracing. Repeat for multiple. Exclusion wins over inclusion.",
+        description =
+          "Package or class FQN prefix excluded from tracing. Repeat for multiple. Exclusion wins over inclusion.",
         required = false,
         allowMultipleOccurrences = true,
       ),

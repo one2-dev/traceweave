@@ -1,8 +1,8 @@
-package dev.one2.traceweave
+package dev.one2.traceweave.exception
 
 /**
- * Opt-in contract for exceptions you own. Lets [Mode.COPY] reconstruct them with zero configuration
- * and full type/field fidelity, instead of leaning on the built-in copier table or reflection.
+ * Opt-in contract for exceptions you own. Lets COPY mode reconstruct them with zero configuration and
+ * full type/field fidelity, instead of leaning on the built-in copier table or reflection.
  *
  * In COPY mode traceweave calls [copyWithCause] on the in-flight exception, passing the original as
  * the cause, then writes the synthetic frames onto the returned copy. The original is left untouched
@@ -16,9 +16,9 @@ package dev.one2.traceweave
  * - transfer suppressed exceptions yourself if you need them — traceweave does not for this path;
  * - do NOT touch the stack trace — traceweave sets it.
  *
- * Only consulted in [Mode.COPY]; ignored in [Mode.INPLACE]. A throwing or contract-violating
- * implementation (e.g. an unwritable instance) is swallowed best-effort and the original exception
- * is used instead.
+ * Only consulted in COPY mode; ignored in INPLACE mode. A throwing or contract-violating
+ * implementation (e.g. an unwritable instance) is swallowed best-effort and the original exception is
+ * used instead.
  */
 interface TraceWeaveException {
   fun copyWithCause(cause: Throwable): Throwable

@@ -1,11 +1,17 @@
-package dev.one2.traceweave
+package dev.one2.traceweave.config
 
+import dev.one2.traceweave.constant.Configuration
+import dev.one2.traceweave.constant.Message
+import dev.one2.traceweave.logging.logger
+import dev.one2.traceweave.mode.Mode
+import dev.one2.traceweave.mode.clearCopyState
+import dev.one2.traceweave.mode.clearInplaceState
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Immutable runtime policy. Owned by the application: set once via [configure], or bootstrapped from
- * `traceweave.*` system properties. Until a policy is present, traceweave is inert and [handle]
+ * `traceweave.*` system properties. Until a policy is present, traceweave is inert and `handle`
  * passes exceptions through untouched.
  *
  * This is the *policy* surface only (mode and, in later commits, logger/flags). Registering copiers
@@ -22,15 +28,6 @@ class TraceWeaveConfigBuilder internal constructor() {
 
   internal fun build(): TraceWeaveConfig = TraceWeaveConfig(mode = mode)
 }
-
-// System-property contract for the zero-config Gradle path (the plugin sets [PROP_ENABLED]).
-internal const val PROP_PREFIX = "traceweave."
-internal const val PROP_MODE = PROP_PREFIX + "mode"
-internal const val PROP_ENABLED = PROP_PREFIX + "enabled"
-private const val DISABLED_VALUE = "false"
-
-private const val RECONFIGURE_WARNING =
-  "traceweave: configure() called more than once; policy is application-owned and was replaced"
 
 // Single source of truth for runtime policy. `null` == not configured == inert (pass-through).
 private val configRef = AtomicReference<TraceWeaveConfig?>(null)
@@ -50,7 +47,7 @@ fun configure(block: TraceWeaveConfigBuilder.() -> Unit) {
   val cfg = TraceWeaveConfigBuilder().apply(block).build()
   val previous = configRef.getAndSet(cfg)
   if (previous != null) {
-    System.err.println(RECONFIGURE_WARNING)
+    logger.warn(Message.RECONFIGURE_WARNING)
   }
 }
 
@@ -66,18 +63,15 @@ internal fun activeConfig(): TraceWeaveConfig? {
   return configRef.get()
 }
 
-// Builds a policy from `traceweave.*` system properties, or returns `null` when none are set so we
-// stay inert.
+// Builds a policy from `traceweave.*` system properties. The activation gate is PROP_ENABLED (set by
+// the Gradle plugin): absent -> inert, "false" -> inert. Otherwise PROP_MODE picks the mode.
 private fun bootstrapFromProperties(): TraceWeaveConfig? {
-  val present = System.getProperties().stringPropertyNames().any { it.startsWith(PROP_PREFIX) }
-  if (!present) {
+  val enabled = System.getProperty(Configuration.PROP_ENABLED)?.trim()?.toBoolean() ?: false
+  if (!enabled) {
     return null
   }
-  if (System.getProperty(PROP_ENABLED)?.trim().equals(DISABLED_VALUE, ignoreCase = true)) {
-    return null
-  }
-  val raw = System.getProperty(PROP_MODE)?.trim()
-  val mode = Mode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: Mode.INPLACE
+  val raw = System.getProperty(Configuration.PROP_MODE)?.trim()?.uppercase() ?: Mode.INPLACE.name
+  val mode = Mode.valueOf(raw)
   return TraceWeaveConfig(mode = mode)
 }
 

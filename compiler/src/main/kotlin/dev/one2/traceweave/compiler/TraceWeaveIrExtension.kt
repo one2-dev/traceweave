@@ -1,5 +1,6 @@
 package dev.one2.traceweave.compiler
 
+import dev.one2.traceweave.handler.TraceWeaveContract
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
@@ -35,9 +36,10 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
-private val TRACE_WEAVE_FQN = FqName("dev.one2.traceweave.TraceWeave")
-private val RUNTIME_PACKAGE = FqName("dev.one2.traceweave")
-private val HANDLE = Name.identifier("handle")
+// Resolved from the runtime's own declarations (see TraceWeaveContract) -- no hardcoded FQN strings.
+private val TRACE_WEAVE_FQN = FqName(TraceWeaveContract.ANNOTATION_FQN)
+private val RUNTIME_PACKAGE = FqName(TraceWeaveContract.HANDLE_PACKAGE)
+private val HANDLE = Name.identifier(TraceWeaveContract.HANDLE_NAME)
 
 /**
  * A function is traced if ALL of the following hold:
