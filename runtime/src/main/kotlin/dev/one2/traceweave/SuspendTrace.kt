@@ -1,10 +1,17 @@
 package dev.one2.traceweave
 
+import org.slf4j.LoggerFactory
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.coroutines.cancellation.CancellationException
 
 private const val DEPRECATION_MESSAGE = "Replaced by handle(); emitted only by older plugin versions."
+
+// slf4j facade for traceweave's own diagnostics. No-op until the host app provides a binding.
+internal const val LOGGER_NAME = "dev.one2.traceweave"
+private val logger = LoggerFactory.getLogger(LOGGER_NAME)
+private const val FRAME_INSERT_FAILED =
+  "traceweave: frame insertion failed; original exception left unchanged"
 
 // How far around the target index we look for an identical frame before inserting. A nonzero radius
 // collapses duplicates contributed by other sources (coroutine recovery, DebugProbes) that land a
@@ -27,7 +34,8 @@ internal val frameDepths: MutableMap<Throwable, IntArray> =
  *
  * Until traceweave is configured (via [configure] or a `traceweave.*` property) this is a no-op
  * pass-through: the original exception is returned untouched. [CancellationException] is always
- * passed through. Best-effort: any failure inside leaves the original exception unchanged.
+ * passed through. Best-effort: any failure inside leaves the original exception unchanged and is
+ * reported through the slf4j logger [LOGGER_NAME] rather than propagated.
  */
 fun handle(
   error: Throwable,
@@ -49,7 +57,8 @@ fun handle(
       // COPY is implemented in a later commit; pass through until then.
       Mode.COPY -> error
     }
-  } catch (_: Throwable) {
+  } catch (t: Throwable) {
+    logger.warn(FRAME_INSERT_FAILED, t)
     error
   }
 }
