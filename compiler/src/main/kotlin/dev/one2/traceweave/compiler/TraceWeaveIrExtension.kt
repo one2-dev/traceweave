@@ -37,7 +37,7 @@ import org.jetbrains.kotlin.name.Name
 
 private val TRACE_WEAVE_FQN = FqName("dev.one2.traceweave.TraceWeave")
 private val RUNTIME_PACKAGE = FqName("dev.one2.traceweave")
-private val INSERT_FRAME = Name.identifier("insertCoroutineFrame")
+private val HANDLE = Name.identifier("handle")
 
 /**
  * A function is traced if ALL of the following hold:
@@ -91,9 +91,9 @@ class TraceWeaveIrExtension(
     moduleFragment: IrModuleFragment,
     pluginContext: IrPluginContext,
   ) {
-    val insertFrame =
+    val handler =
       pluginContext
-        .referenceFunctions(CallableId(RUNTIME_PACKAGE, INSERT_FRAME))
+        .referenceFunctions(CallableId(RUNTIME_PACKAGE, HANDLE))
         .singleOrNull() ?: return // runtime module not on the classpath — plugin is a no-op
 
     moduleFragment.acceptVoid(
@@ -105,7 +105,7 @@ class TraceWeaveIrExtension(
         override fun visitFunction(declaration: IrFunction) {
           if (declaration.isTraceFrame(prefixes, excluded)) {
             declaration.body?.transformChildrenVoid(
-              SuspendCallWrapper(pluginContext, insertFrame, declaration),
+              SuspendCallWrapper(pluginContext, handler, declaration),
             )
           }
           declaration.acceptChildrenVoid(this)
@@ -117,7 +117,7 @@ class TraceWeaveIrExtension(
 
 private class SuspendCallWrapper(
   private val pluginContext: IrPluginContext,
-  private val insertFrame: IrSimpleFunctionSymbol,
+  private val handler: IrSimpleFunctionSymbol,
   private val enclosing: IrFunction,
 ) : IrElementTransformerVoid() {
   @OptIn(UnsafeDuringIrConstructionAPI::class)
@@ -152,14 +152,18 @@ private class SuspendCallWrapper(
 
     val catchBody =
       builder.irBlock(resultType = nothingType) {
-        +irCall(insertFrame).apply {
-          arguments[0] = irGet(catchVar)
-          arguments[1] = irString(declaringClass)
-          arguments[2] = irString(methodName)
-          arguments[3] = irString(fileName)
-          arguments[4] = irInt(lineNumber)
-        }
-        +IrThrowImpl(call.startOffset, call.endOffset, nothingType, irGet(catchVar))
+        +IrThrowImpl(
+          call.startOffset,
+          call.endOffset,
+          nothingType,
+          irCall(handler).apply {
+            arguments[0] = irGet(catchVar)
+            arguments[1] = irString(declaringClass)
+            arguments[2] = irString(methodName)
+            arguments[3] = irString(fileName)
+            arguments[4] = irInt(lineNumber)
+          },
+        )
       }
 
     return IrTryImpl(call.startOffset, call.endOffset, call.type).apply {

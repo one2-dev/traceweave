@@ -12,3 +12,17 @@ publishing {
     }
   }
 }
+
+val coroutinesVersion: String by project
+val junitVersion: String by project
+
+dependencies {
+  testImplementation(kotlin("test"))
+  testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+  testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+}
+
+tasks.test {
+  useJUnitPlatform()
+}
