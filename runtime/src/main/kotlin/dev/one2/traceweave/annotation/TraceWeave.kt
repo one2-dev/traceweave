@@ -1,4 +1,4 @@
-package dev.one2.traceweave
+package dev.one2.traceweave.annotation
 
 /**
  * Marks a suspend function as "visible in coroutine stack traces".

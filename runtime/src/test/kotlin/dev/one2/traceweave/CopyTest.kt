@@ -1,5 +1,11 @@
 package dev.one2.traceweave
 
+import dev.one2.traceweave.config.configure
+import dev.one2.traceweave.config.resetForTest
+import dev.one2.traceweave.constant.Copy
+import dev.one2.traceweave.exception.TraceWeaveException
+import dev.one2.traceweave.handler.handle
+import dev.one2.traceweave.mode.Mode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.test.AfterTest
@@ -29,20 +35,20 @@ class CopyTest {
     configure { mode = Mode.COPY }
     val original = OrderFailed("nope")
     val originalFrames = original.stackTrace.toList()
-    val result = handle(original, "Svc", "place", "Svc.kt", 7)
+    val result = TestHelper.handleDefault(original)
     assertIs<OrderFailed>(result)
     assertNotSame(original, result)
     assertSame(original, result.cause)
-    assertTrue(result.stackTrace.any { it.className == "Svc" && it.methodName == "place" })
-    assertTrue(result.stackTrace.any { it.className == MARKER })
+    assertTrue(result.stackTrace.any { it.className == TestHelper.CLASS && it.methodName == TestHelper.METHOD })
+    assertTrue(result.stackTrace.any { it.className == Copy.MARKER })
     assertEquals(originalFrames, original.stackTrace.toList())
   }
 
   @Test
   fun groupAStandardExceptionIsCopiedThroughConstructor() {
     configure { mode = Mode.COPY }
-    val original = IllegalStateException("boom")
-    val result = handle(original, "Svc", "m", "Svc.kt", 1)
+    val original = IllegalStateException(TestHelper.MESSAGE)
+    val result = TestHelper.handleDefault(original)
     assertIs<IllegalStateException>(result)
     assertNotSame(original, result)
     assertSame(original, result.cause)
@@ -52,7 +58,7 @@ class CopyTest {
   fun groupBStandardExceptionIsCopiedThroughInitCause() {
     configure { mode = Mode.COPY }
     val original = NumberFormatException("bad")
-    val result = handle(original, "Svc", "m", "Svc.kt", 1)
+    val result = TestHelper.handleDefault(original)
     assertIs<NumberFormatException>(result)
     assertNotSame(original, result)
     assertSame(original, result.cause)
@@ -61,12 +67,12 @@ class CopyTest {
   @Test
   fun appendingAcrossLevelsKeepsOneCopyAndOneMarker() {
     configure { mode = Mode.COPY }
-    val original = IllegalStateException("boom")
+    val original = IllegalStateException(TestHelper.MESSAGE)
     val inner = handle(original, "C", "inner", "C.kt", 1)
     val outer = handle(inner, "C", "outer", "C.kt", 2)
     assertSame(inner, outer)
     assertSame(original, outer.cause)
-    assertEquals(1, outer.stackTrace.count { it.className == MARKER })
+    assertEquals(1, outer.stackTrace.count { it.className == Copy.MARKER })
     val names = outer.stackTrace.map { it.methodName }
     assertTrue(names.indexOf("inner") < names.indexOf("outer"))
   }
@@ -75,17 +81,17 @@ class CopyTest {
   fun unwritableCopyFallsBackToOriginal() {
     configure { mode = Mode.COPY }
     val original = UnwritableOwned("x")
-    val result = handle(original, "C", "m", "C.kt", 1)
+    val result = TestHelper.handleDefault(original)
     assertSame(original, result)
   }
 
   @Test
   fun suppressedExceptionsAreCarriedToTheCopy() {
     configure { mode = Mode.COPY }
-    val original = IllegalStateException("boom")
-    val suppressed = RuntimeException("closed badly")
+    val original = IllegalStateException(TestHelper.MESSAGE)
+    val suppressed = TestHelper.error("closed badly")
     original.addSuppressed(suppressed)
-    val result = handle(original, "C", "m", "C.kt", 1)
+    val result = TestHelper.handleDefault(original)
     assertTrue(result.suppressed.any { it === suppressed })
   }
 
@@ -93,26 +99,26 @@ class CopyTest {
   fun virtualMachineErrorPassesThroughWithoutCopy() {
     configure { mode = Mode.COPY }
     val error = OutOfMemoryError("heap")
-    val result = handle(error, "C", "m", "C.kt", 1)
+    val result = TestHelper.handleDefault(error)
     assertSame(error, result)
-    assertFalse(result.stackTrace.any { it.className == MARKER })
+    assertFalse(result.stackTrace.any { it.className == Copy.MARKER })
   }
 
   @Test
   fun unknownTypeWithoutCopierPassesThrough() {
     configure { mode = Mode.COPY }
     val original = CustomUnsupported("nope")
-    val result = handle(original, "C", "m", "C.kt", 1)
+    val result = TestHelper.handleDefault(original)
     assertSame(original, result)
   }
 
   @Test
-  fun realCoroutineCopyCarriesThrowSiteAndChainsOriginal() =
+  fun realCoroutineCopyCarriesThrowSiteAndChainsOriginal(): Unit =
     runBlocking {
       configure { mode = Mode.COPY }
-      val result = runCatching { tracedOuterCopy() }.exceptionOrNull()!!
+      val result = requireNotNull(runCatching { tracedOuterCopy() }.exceptionOrNull())
       assertIs<IllegalStateException>(result)
-      assertTrue(result.stackTrace.any { it.className == MARKER })
+      assertTrue(result.stackTrace.any { it.className == Copy.MARKER })
       assertTrue(result.stackTrace.any { it.methodName == "tracedOuterCopy" })
       assertNotNull(result.cause)
     }
@@ -134,7 +140,7 @@ private class CustomUnsupported(message: String) : RuntimeException(message)
 
 private suspend fun failingInnerCopy(): Int {
   delay(1)
-  throw IllegalStateException("boom")
+  throw IllegalStateException(TestHelper.MESSAGE)
 }
 
 private suspend fun tracedOuterCopy(): Int =

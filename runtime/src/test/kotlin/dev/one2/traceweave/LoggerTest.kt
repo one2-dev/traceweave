@@ -3,6 +3,11 @@ package dev.one2.traceweave
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import dev.one2.traceweave.config.configure
+import dev.one2.traceweave.config.resetForTest
+import dev.one2.traceweave.constant.Configuration
+import dev.one2.traceweave.handler.handle
+import dev.one2.traceweave.mode.Mode
 import org.slf4j.LoggerFactory
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -12,6 +17,17 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
+/**
+ * Verifies the diagnostics that [handle] logs on its best-effort catch path.
+ *
+ * How the capture works: the runtime logs through the slf4j facade to a logger named
+ * [Configuration.LOGGER_NAME]. slf4j only routes calls -- the real binding on the test classpath is
+ * logback-classic (a `testImplementation` dependency), so `LoggerFactory.getLogger()` actually hands
+ * back a logback [Logger]. Loggers are cached by name, so this is the very same instance the runtime
+ * writes to. We attach a logback [ListAppender] to it; the appender records every logging event into
+ * an in-memory list ([ListAppender.list]), which lets the tests assert what was logged instead of
+ * scraping the console.
+ */
 class LoggerTest {
   private lateinit var logger: Logger
   private lateinit var appender: ListAppender<ILoggingEvent>
@@ -19,7 +35,9 @@ class LoggerTest {
   @BeforeTest
   fun setUp() {
     resetForTest()
-    logger = LoggerFactory.getLogger(LOGGER_NAME) as Logger
+    // Same name as the runtime's logger -> same instance; cast is safe because logback is the binding.
+    logger = LoggerFactory.getLogger(Configuration.LOGGER_NAME) as Logger
+    // A started ListAppender collects events into its `list`; attach it so we see what handle() logs.
     appender = ListAppender<ILoggingEvent>().also { it.start() }
     logger.addAppender(appender)
   }
@@ -34,7 +52,7 @@ class LoggerTest {
   fun swallowedFailureIsLogged() {
     configure { mode = Mode.INPLACE }
     val error = HostileException()
-    val result = handle(error, "Outer", "outer", "Test.kt", 10)
+    val result = TestHelper.handleDefault(error)
     assertSame(error, result)
     assertEquals(1, appender.list.size)
     assertNotNull(appender.list.single().throwableProxy)
@@ -43,7 +61,7 @@ class LoggerTest {
   @Test
   fun successPathDoesNotLog() {
     configure { mode = Mode.INPLACE }
-    handle(RuntimeException("ok"), "Outer", "outer", "Test.kt", 10)
+    TestHelper.handleDefault(TestHelper.error("ok"))
     assertTrue(appender.list.isEmpty())
   }
 }

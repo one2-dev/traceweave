@@ -1,6 +1,6 @@
 package dev.one2.traceweave.test.classes.annotation
 
-import dev.one2.traceweave.TraceWeave
+import dev.one2.traceweave.annotation.TraceWeave
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
