@@ -6,6 +6,11 @@ import kotlin.coroutines.cancellation.CancellationException
 
 private const val DEPRECATION_MESSAGE = "Replaced by handle(); emitted only by older plugin versions."
 
+// How far around the target index we look for an identical frame before inserting. A nonzero radius
+// collapses duplicates contributed by other sources (coroutine recovery, DebugProbes) that land a
+// position or two off from ours, not just an exact hit at the insertion index.
+private const val DEDUP_RADIUS = 1
+
 // Keyed by Throwable identity with weak references -- entries are dropped automatically once the
 // exception is no longer referenced elsewhere, so there is no memory leak. Synchronized because
 // coroutines hop threads: the same instance can reach handle() from different threads.
@@ -76,6 +81,11 @@ fun insertCoroutineFrame(
  * Prepends a synthetic caller frame ([declaringClass].[methodName] at [fileName]:[lineNumber]) to
  * [error]'s stack trace, right below the throw site. As the exception unwinds, each outer caller is
  * inserted one position lower, so the callee-to-caller order is preserved.
+ *
+ * Conflict-tolerant: if an identical frame already sits within [DEDUP_RADIUS] of the insertion point
+ * (whether put there by us or by another source) the insertion is skipped. The whole read-counter /
+ * read-trace / write-trace sequence runs under the per-instance counter lock, because coroutines hop
+ * threads and the same exception can reach here concurrently.
  */
 private fun insertInplaceFrame(
   error: Throwable,
@@ -84,14 +94,36 @@ private fun insertInplaceFrame(
   fileName: String,
   lineNumber: Int,
 ) {
-  val counter = frameDepths.getOrPut(error) { intArrayOf(0) }
-  val st = error.stackTrace
-  val at = minOf(++counter[0], st.size)
-  val newFrame = StackTraceElement(declaringClass, methodName, fileName, lineNumber)
-  if (at < st.size && st[at] == newFrame) {
-    return
+  val counter = synchronized(frameDepths) { frameDepths.getOrPut(error) { intArrayOf(0) } }
+  synchronized(counter) {
+    val st = error.stackTrace
+    val next = counter[0] + 1
+    val at = minOf(next, st.size)
+    val newFrame = StackTraceElement(declaringClass, methodName, fileName, lineNumber)
+    // Peek the position but only commit the counter when we actually insert: a skipped duplicate must
+    // not advance it, or the next identical frame would land past this one's window and double up.
+    if (frameAlreadyPresentNear(st, newFrame, at)) {
+      return
+    }
+    counter[0] = next
+    error.stackTrace = st.copyOfRange(0, at) + newFrame + st.copyOfRange(at, st.size)
   }
-  error.stackTrace = st.copyOfRange(0, at) + newFrame + st.copyOfRange(at, st.size)
+}
+
+// True when [frame] already appears within [DEDUP_RADIUS] indices of [at] in [stackTrace].
+private fun frameAlreadyPresentNear(
+  stackTrace: Array<StackTraceElement>,
+  frame: StackTraceElement,
+  at: Int,
+): Boolean {
+  val from = maxOf(0, at - DEDUP_RADIUS)
+  val to = minOf(stackTrace.size - 1, at + DEDUP_RADIUS)
+  for (i in from..to) {
+    if (stackTrace[i] == frame) {
+      return true
+    }
+  }
+  return false
 }
 
 internal fun clearInplaceState() {
