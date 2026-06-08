@@ -86,4 +86,5 @@ internal fun resetForTest() {
   configRef.set(null)
   bootstrapAttempted.set(false)
   clearInplaceState()
+  clearCopyState()
 }

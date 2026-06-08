@@ -9,7 +9,7 @@ private const val DEPRECATION_MESSAGE = "Replaced by handle(); emitted only by o
 
 // slf4j facade for traceweave's own diagnostics. No-op until the host app provides a binding.
 internal const val LOGGER_NAME = "dev.one2.traceweave"
-private val logger = LoggerFactory.getLogger(LOGGER_NAME)
+internal val logger = LoggerFactory.getLogger(LOGGER_NAME)
 private const val FRAME_INSERT_FAILED =
   "traceweave: frame insertion failed; original exception left unchanged"
 
@@ -29,13 +29,15 @@ internal val frameDepths: MutableMap<Throwable, IntArray> =
  * Runtime entry point called by plugin-generated code in the catch block around a suspend call:
  * `catch (e: Throwable) { throw handle(e, "com.x.C", "m", "C.kt", 42) }`.
  *
- * Returns the exception to actually rethrow — the same instance today (and in [Mode.INPLACE]); a
- * copy in [Mode.COPY] in a later commit.
+ * Returns the exception to actually rethrow: the same instance in [Mode.INPLACE], a fresh copy of
+ * the same type (original chained as its cause) in [Mode.COPY].
  *
  * Until traceweave is configured (via [configure] or a `traceweave.*` property) this is a no-op
- * pass-through: the original exception is returned untouched. [CancellationException] is always
- * passed through. Best-effort: any failure inside leaves the original exception unchanged and is
- * reported through the slf4j logger [LOGGER_NAME] rather than propagated.
+ * pass-through: the original exception is returned untouched. [CancellationException] and
+ * [VirtualMachineError] are always passed through (the latter because allocating a copy or array
+ * while the VM is already failing only makes things worse). Best-effort: any failure inside leaves
+ * the original exception unchanged and is reported through the slf4j logger [LOGGER_NAME] rather than
+ * propagated.
  */
 fun handle(
   error: Throwable,
@@ -45,7 +47,7 @@ fun handle(
   lineNumber: Int,
 ): Throwable {
   val config = activeConfig() ?: return error
-  if (error is CancellationException) {
+  if (error is CancellationException || error is VirtualMachineError) {
     return error
   }
   return try {
@@ -54,8 +56,7 @@ fun handle(
         insertInplaceFrame(error, declaringClass, methodName, fileName, lineNumber)
         error
       }
-      // COPY is implemented in a later commit; pass through until then.
-      Mode.COPY -> error
+      Mode.COPY -> insertCopyFrame(error, declaringClass, methodName, fileName, lineNumber)
     }
   } catch (t: Throwable) {
     logger.warn(FRAME_INSERT_FAILED, t)

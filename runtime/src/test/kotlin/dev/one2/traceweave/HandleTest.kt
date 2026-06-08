@@ -62,16 +62,6 @@ class HandleTest {
   }
 
   @Test
-  fun copyModePassesThroughUntilImplemented() {
-    configure { mode = Mode.COPY }
-    val error = RuntimeException("boom")
-    val before = error.stackTrace.toList()
-    val result = handle(error, "Outer", "outer", "Test.kt", 10)
-    assertSame(error, result)
-    assertEquals(before, error.stackTrace.toList())
-  }
-
-  @Test
   fun nestedFramesKeepCalleeToCallerOrder() {
     configure { mode = Mode.INPLACE }
     val error = RuntimeException("boom")
