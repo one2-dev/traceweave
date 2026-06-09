@@ -44,9 +44,10 @@ object TraceWeave {
    */
   fun configure(block: TraceWeaveConfigBuilder.() -> Unit) {
     val builder = TraceWeaveConfigBuilder().apply(block)
-    val strategy = builder.strategy
-      ?: builder.mode.builtInStrategy()
-      ?: error("Mode.CUSTOM requires a strategy; set one via configure { strategy = ... }")
+    val strategy =
+      builder.strategy
+        ?: builder.mode.builtInStrategy()
+        ?: error("Mode.CUSTOM requires a strategy; set one via configure { strategy = ... }")
     val cfg = TraceWeaveConfig(strategy, builder.reflectionCopy)
     if (configRef.getAndSet(cfg) != null) {
       logger.warn(Message.RECONFIGURE_WARNING)

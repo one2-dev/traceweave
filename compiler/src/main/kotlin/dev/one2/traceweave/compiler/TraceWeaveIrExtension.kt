@@ -4,6 +4,8 @@ import dev.one2.traceweave.TraceWeaveContract
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.declarations.buildVariable
 import org.jetbrains.kotlin.ir.builders.irBlock
@@ -38,6 +40,8 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import java.util.Collections
+import java.util.IdentityHashMap
 
 // Resolved from the runtime's own declarations (see TraceWeaveContract) -- no hardcoded FQN strings.
 private val TRACE_WEAVE_FQN = FqName(TraceWeaveContract.ANNOTATION_FQN)
@@ -91,6 +95,7 @@ private fun String.matchesAnyPrefix(prefixes: List<String>): Boolean = prefixes.
 class TraceWeaveIrExtension(
   private val prefixes: List<String>,
   private val excluded: List<String>,
+  private val messages: MessageCollector,
 ) : IrGenerationExtension {
   override fun generate(
     moduleFragment: IrModuleFragment,
@@ -103,6 +108,13 @@ class TraceWeaveIrExtension(
     // handle() lives on the TraceWeave object, so calls need the singleton instance as dispatch receiver.
     val handlerObject = pluginContext.referenceClass(HANDLER_CLASS) ?: return
 
+    // A traced function and its nested traced lambdas/local-funs are visited by separate passes, so in
+    // include mode the same suspend call can be reached twice. Identity-track woven calls so each is
+    // wrapped at most once (the outer pass wins) -- no double frame.
+    val woven: MutableSet<IrCall> = Collections.newSetFromMap(IdentityHashMap())
+    var functionCount = 0
+    var callSiteCount = 0
+
     moduleFragment.acceptVoid(
       object : IrVisitorVoid() {
         override fun visitElement(element: IrElement) {
@@ -111,14 +123,32 @@ class TraceWeaveIrExtension(
 
         override fun visitFunction(declaration: IrFunction) {
           if (declaration.isTraceFrame(prefixes, excluded)) {
-            declaration.body?.transformChildrenVoid(
-              SuspendCallWrapper(pluginContext, handler, handlerObject, declaration),
-            )
+            val wrapper = SuspendCallWrapper(pluginContext, handler, handlerObject, declaration, woven)
+            declaration.body?.transformChildrenVoid(wrapper)
+            if (wrapper.wovenCount > 0) {
+              functionCount++
+              callSiteCount += wrapper.wovenCount
+              // Per-function detail goes to LOGGING (Gradle `--debug`); the build's log level decides
+              // whether it shows, so there is no plugin flag of our own.
+              messages.report(
+                CompilerMessageSeverity.LOGGING,
+                "[traceweave] instrumented ${declaration.kotlinFqName.asString()} (${wrapper.wovenCount} call site(s))",
+              )
+            }
           }
           declaration.acceptChildrenVoid(this)
         }
       },
     )
+
+    if (functionCount > 0) {
+      // The summary goes to INFO (Gradle `--info`): a concise stat without the per-function noise.
+      val module = moduleFragment.name.asString()
+      messages.report(
+        CompilerMessageSeverity.INFO,
+        "[traceweave] $functionCount function(s), $callSiteCount call site(s) instrumented in $module",
+      )
+    }
   }
 }
 
@@ -127,13 +157,23 @@ private class SuspendCallWrapper(
   private val handler: IrSimpleFunctionSymbol,
   private val handlerObject: IrClassSymbol,
   private val enclosing: IrFunction,
+  private val woven: MutableSet<IrCall>,
 ) : IrElementTransformerVoid() {
+  // How many suspend call-sites this pass actually wrapped (skips already-woven ones don't count).
+  var wovenCount = 0
+    private set
+
   @OptIn(UnsafeDuringIrConstructionAPI::class)
   override fun visitCall(expression: IrCall): IrExpression {
     expression.transformChildrenVoid()
     if (!expression.symbol.owner.isSuspend) {
       return expression
     }
+    if (!woven.add(expression)) {
+      // Already wrapped by an enclosing traced pass -- a second wrap would add a duplicate frame.
+      return expression
+    }
+    wovenCount++
     return wrap(expression)
   }
 

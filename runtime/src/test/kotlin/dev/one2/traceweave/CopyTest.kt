@@ -1,10 +1,10 @@
 package dev.one2.traceweave
 
 import dev.one2.traceweave.TraceWeave.configure
+import dev.one2.traceweave.TraceWeave.handle
 import dev.one2.traceweave.TraceWeave.reset
 import dev.one2.traceweave.constant.Copy
 import dev.one2.traceweave.exception.TraceWeaveException
-import dev.one2.traceweave.TraceWeave.handle
 import dev.one2.traceweave.mode.Mode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
