@@ -47,7 +47,8 @@ object TraceWeave {
     val strategy = builder.strategy
       ?: builder.mode.builtInStrategy()
       ?: error("Mode.CUSTOM requires a strategy; set one via configure { strategy = ... }")
-    if (configRef.getAndSet(TraceWeaveConfig(strategy)) != null) {
+    val cfg = TraceWeaveConfig(strategy, builder.reflectionCopy)
+    if (configRef.getAndSet(cfg) != null) {
       logger.warn(Message.RECONFIGURE_WARNING)
     }
   }
@@ -62,6 +63,9 @@ object TraceWeave {
     return configRef.get()
   }
 
+  /** Whether COPY mode may fall back to the reflection copier; off unless policy enables it. */
+  internal fun reflectionCopyEnabled(): Boolean = activeConfig()?.reflectionCopy ?: false
+
   // Builds a policy from `traceweave.*` system properties. The activation gate is PROP_ENABLED (set by
   // the Gradle plugin): absent -> inert, "false" -> inert. Otherwise PROP_MODE picks a built-in mode;
   // CUSTOM is rejected here since a strategy cannot be supplied through a property.
@@ -71,9 +75,10 @@ object TraceWeave {
       return null
     }
     val raw = System.getProperty(Configuration.PROP_MODE)?.trim()?.uppercase() ?: Mode.INPLACE.name
+    val reflectionCopy = System.getProperty(Configuration.PROP_REFLECTION)?.trim()?.toBoolean() ?: false
     // CUSTOM has no built-in strategy, so it stays inert here -- a custom strategy can only be supplied
     // in code via configure {}.
-    return Mode.valueOf(raw).builtInStrategy()?.let { TraceWeaveConfig(strategy = it) }
+    return Mode.valueOf(raw).builtInStrategy()?.let { TraceWeaveConfig(strategy = it, reflectionCopy = reflectionCopy) }
   }
 
   // The built-in strategy for a mode, or null for CUSTOM (whose strategy is supplied via configure).
@@ -217,11 +222,12 @@ object TraceWeave {
 
 /**
  * Immutable runtime policy. Owned by the application: set once via [TraceWeave.configure], or
- * bootstrapped from `traceweave.*` system properties. This is the *policy* surface only (currently
- * just the active [strategy]). Registering copiers is a separate, additive surface.
+ * bootstrapped from `traceweave.*` system properties. This is the *policy* surface only (the active
+ * [strategy] and the [reflectionCopy] flag). Registering copiers is a separate, additive surface.
  */
 class TraceWeaveConfig internal constructor(
   val strategy: ModeStrategy,
+  val reflectionCopy: Boolean,
 )
 
 /** Mutable builder backing the [TraceWeave.configure] DSL. Policy only. */
@@ -234,4 +240,10 @@ class TraceWeaveConfigBuilder internal constructor() {
    * [mode] entirely (equivalent to [Mode.CUSTOM]) -- do whatever you like with the exception.
    */
   var strategy: ModeStrategy? = null
+
+  /**
+   * Lets COPY mode rebuild an unowned exception type by reflection when no interface/registered/built-in
+   * copier applies. Off by default (best-effort, slower); also settable via `traceweave.copy.reflection`.
+   */
+  var reflectionCopy: Boolean = false
 }
