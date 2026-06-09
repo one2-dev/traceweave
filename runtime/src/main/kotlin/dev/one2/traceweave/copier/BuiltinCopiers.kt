@@ -1,4 +1,4 @@
-package dev.one2.traceweave.mode
+package dev.one2.traceweave.copier
 
 import dev.one2.traceweave.extension.withCause
 import java.io.EOFException
@@ -20,7 +20,7 @@ import java.util.concurrent.TimeoutException
  * and `VirtualMachineError` never reach here (passed through earlier); `UncheckedIOException` is
  * absent because its constructor demands an `IOException` cause we cannot supply.
  */
-internal val BUILTIN_COPIERS: Map<Class<*>, (Throwable) -> Throwable> =
+internal val BUILTIN_COPIERS: Map<Class<*>, ExceptionCopier> =
   mapOf(
     // Group A -- cause via constructor.
     Throwable::class.java to { o -> Throwable(o.message, o) },

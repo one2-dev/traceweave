@@ -1,6 +1,6 @@
 package dev.one2.traceweave
 
-import dev.one2.traceweave.handler.handle
+import dev.one2.traceweave.TraceWeave.handle
 
 // Shared literals and factories for the runtime tests, so the same message and synthetic frame
 // coordinates are not re-typed in every test.

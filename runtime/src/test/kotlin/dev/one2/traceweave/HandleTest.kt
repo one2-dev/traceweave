@@ -1,9 +1,9 @@
 package dev.one2.traceweave
 
-import dev.one2.traceweave.config.configure
-import dev.one2.traceweave.config.resetForTest
+import dev.one2.traceweave.TraceWeave.configure
+import dev.one2.traceweave.TraceWeave.reset
 import dev.one2.traceweave.constant.Configuration
-import dev.one2.traceweave.handler.handle
+import dev.one2.traceweave.TraceWeave.handle
 import dev.one2.traceweave.mode.Mode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -21,13 +21,13 @@ class HandleTest {
   @BeforeTest
   fun setUp() {
     clearTraceweaveProperties()
-    resetForTest()
+    reset()
   }
 
   @AfterTest
   fun tearDown() {
     clearTraceweaveProperties()
-    resetForTest()
+    reset()
   }
 
   @Test

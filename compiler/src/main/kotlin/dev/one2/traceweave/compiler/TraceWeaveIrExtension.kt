@@ -1,6 +1,6 @@
 package dev.one2.traceweave.compiler
 
-import dev.one2.traceweave.handler.TraceWeaveContract
+import dev.one2.traceweave.TraceWeaveContract
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildVariable
 import org.jetbrains.kotlin.ir.builders.irBlock
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.builders.irGet
+import org.jetbrains.kotlin.ir.builders.irGetObject
 import org.jetbrains.kotlin.ir.builders.irInt
 import org.jetbrains.kotlin.ir.builders.irString
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -21,6 +22,7 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrCatchImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrThrowImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrTryImpl
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.file
@@ -33,12 +35,13 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.CallableId
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
 // Resolved from the runtime's own declarations (see TraceWeaveContract) -- no hardcoded FQN strings.
 private val TRACE_WEAVE_FQN = FqName(TraceWeaveContract.ANNOTATION_FQN)
-private val RUNTIME_PACKAGE = FqName(TraceWeaveContract.HANDLE_PACKAGE)
+private val HANDLER_CLASS = ClassId.topLevel(FqName(TraceWeaveContract.HANDLER_CLASS_FQN))
 private val HANDLE = Name.identifier(TraceWeaveContract.HANDLE_NAME)
 
 /**
@@ -95,8 +98,10 @@ class TraceWeaveIrExtension(
   ) {
     val handler =
       pluginContext
-        .referenceFunctions(CallableId(RUNTIME_PACKAGE, HANDLE))
+        .referenceFunctions(CallableId(HANDLER_CLASS, HANDLE))
         .singleOrNull() ?: return // runtime module not on the classpath — plugin is a no-op
+    // handle() lives on the TraceWeave object, so calls need the singleton instance as dispatch receiver.
+    val handlerObject = pluginContext.referenceClass(HANDLER_CLASS) ?: return
 
     moduleFragment.acceptVoid(
       object : IrVisitorVoid() {
@@ -107,7 +112,7 @@ class TraceWeaveIrExtension(
         override fun visitFunction(declaration: IrFunction) {
           if (declaration.isTraceFrame(prefixes, excluded)) {
             declaration.body?.transformChildrenVoid(
-              SuspendCallWrapper(pluginContext, handler, declaration),
+              SuspendCallWrapper(pluginContext, handler, handlerObject, declaration),
             )
           }
           declaration.acceptChildrenVoid(this)
@@ -120,6 +125,7 @@ class TraceWeaveIrExtension(
 private class SuspendCallWrapper(
   private val pluginContext: IrPluginContext,
   private val handler: IrSimpleFunctionSymbol,
+  private val handlerObject: IrClassSymbol,
   private val enclosing: IrFunction,
 ) : IrElementTransformerVoid() {
   @OptIn(UnsafeDuringIrConstructionAPI::class)
@@ -159,11 +165,13 @@ private class SuspendCallWrapper(
           call.endOffset,
           nothingType,
           irCall(handler).apply {
-            arguments[0] = irGet(catchVar)
-            arguments[1] = irString(declaringClass)
-            arguments[2] = irString(methodName)
-            arguments[3] = irString(fileName)
-            arguments[4] = irInt(lineNumber)
+            // arguments[0] is the dispatch receiver (the TraceWeave object); the value params follow.
+            arguments[0] = irGetObject(handlerObject)
+            arguments[1] = irGet(catchVar)
+            arguments[2] = irString(declaringClass)
+            arguments[3] = irString(methodName)
+            arguments[4] = irString(fileName)
+            arguments[5] = irInt(lineNumber)
           },
         )
       }
