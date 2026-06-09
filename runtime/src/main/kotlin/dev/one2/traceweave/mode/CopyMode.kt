@@ -1,9 +1,9 @@
 package dev.one2.traceweave.mode
 
+import dev.one2.traceweave.TraceWeave
 import dev.one2.traceweave.constant.Copy
 import dev.one2.traceweave.copier.BUILTIN_COPIERS
 import dev.one2.traceweave.copier.reflectionCopy
-import dev.one2.traceweave.TraceWeave
 import dev.one2.traceweave.exception.TraceWeaveException
 import dev.one2.traceweave.extension.isCoroutineMachinery
 import dev.one2.traceweave.extension.wasCopied
