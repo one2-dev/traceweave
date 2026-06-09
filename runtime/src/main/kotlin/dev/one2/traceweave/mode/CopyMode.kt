@@ -2,6 +2,7 @@ package dev.one2.traceweave.mode
 
 import dev.one2.traceweave.constant.Copy
 import dev.one2.traceweave.copier.BUILTIN_COPIERS
+import dev.one2.traceweave.copier.reflectionCopy
 import dev.one2.traceweave.TraceWeave
 import dev.one2.traceweave.exception.TraceWeaveException
 import dev.one2.traceweave.extension.isCoroutineMachinery
@@ -64,8 +65,8 @@ internal object CopyMode : ModeStrategy {
     return if (cut < 0) st else st.copyOfRange(0, cut)
   }
 
-  // Resolution order: owned interface -> registered copier (app/library) -> built-in table -> null
-  // (reflection slots in here in a later commit). null means "no copier" only; a copier that *throws*
+  // Resolution order: owned interface -> registered copier (app/library) -> built-in table ->
+  // reflection (opt-in via reflectionCopy) -> null. null means "no copier" only; a copier that *throws*
   // is left to propagate to the handler's best-effort catch, which logs it with its cause and returns
   // the original -- so a failure is never swallowed silently here.
   private fun tryCopy(flying: Throwable): Throwable? {
@@ -77,12 +78,19 @@ internal object CopyMode : ModeStrategy {
       // Same contract as the interface: the user/library copier owns suppressed/custom-field transfer.
       return copier(flying)
     }
-    val copier = BUILTIN_COPIERS[flying.javaClass] ?: return null
-    val copy = copier(flying)
-    // Table copies recover only message + cause; restore suppressed (try-with-resources, multi-catch).
-    flying.suppressed.forEach { copy.addSuppressed(it) }
-    return copy
+    BUILTIN_COPIERS[flying.javaClass]?.let { copier ->
+      return copier(flying).restoreSuppressedFrom(flying)
+    }
+    if (TraceWeave.reflectionCopyEnabled()) {
+      reflectionCopy(flying)?.let { copy -> return copy.restoreSuppressedFrom(flying) }
+    }
+    return null
   }
+
+  // Built-in/reflection copies recover only message + cause; restore suppressed (try-with-resources,
+  // multi-catch) from the original.
+  private fun Throwable.restoreSuppressedFrom(original: Throwable): Throwable =
+    apply { original.suppressed.forEach { addSuppressed(it) } }
 
   // Logs at most one warning per class, so a recurring fallback never floods the log.
   private inline fun warnOnce(
