@@ -2,7 +2,7 @@ package dev.one2.traceweave.constant
 
 import dev.one2.traceweave.annotation.TraceWeave
 
-internal object Copy {
+object Copy {
   // Sentinel placed in a synthetic frame's declaringClass to mark "this is already our copy". It is
   // not a valid Java identifier, so no real class name collides with it -- which is why membership can
   // live in the stack trace itself instead of a global set.

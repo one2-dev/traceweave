@@ -3,7 +3,7 @@ package dev.one2.traceweave.compiler
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.PluginOption
 import com.tschuchort.compiletesting.SourceFile
-import dev.one2.traceweave.config.configure
+import dev.one2.traceweave.TraceWeave.configure
 import dev.one2.traceweave.mode.Mode
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import kotlin.test.BeforeTest

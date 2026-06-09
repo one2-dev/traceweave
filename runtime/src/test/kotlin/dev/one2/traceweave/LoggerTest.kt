@@ -3,10 +3,10 @@ package dev.one2.traceweave
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
-import dev.one2.traceweave.config.configure
-import dev.one2.traceweave.config.resetForTest
+import dev.one2.traceweave.TraceWeave.configure
+import dev.one2.traceweave.TraceWeave.reset
 import dev.one2.traceweave.constant.Configuration
-import dev.one2.traceweave.handler.handle
+import dev.one2.traceweave.TraceWeave.handle
 import dev.one2.traceweave.mode.Mode
 import org.slf4j.LoggerFactory
 import kotlin.test.AfterTest
@@ -34,7 +34,7 @@ class LoggerTest {
 
   @BeforeTest
   fun setUp() {
-    resetForTest()
+    reset()
     // Same name as the runtime's logger -> same instance; cast is safe because logback is the binding.
     logger = LoggerFactory.getLogger(Configuration.LOGGER_NAME) as Logger
     // A started ListAppender collects events into its `list`; attach it so we see what handle() logs.
@@ -45,7 +45,7 @@ class LoggerTest {
   @AfterTest
   fun tearDown() {
     logger.detachAppender(appender)
-    resetForTest()
+    reset()
   }
 
   @Test
