@@ -14,7 +14,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeoutException
 
 /**
- * Reflection-free copiers for common JDK/Kotlin exceptions, keyed by exact class. Each rebuilds the
+ * Reflection-free copiers for common Java/Kotlin exceptions, keyed by exact class. Each rebuilds the
  * same type preserving `message` and chaining the original as cause -- group A through a
  * `(message, cause)` constructor, group B by constructing then [withCause]. `CancellationException`
  * and `VirtualMachineError` never reach here (passed through earlier); `UncheckedIOException` is

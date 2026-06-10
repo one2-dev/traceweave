@@ -72,10 +72,13 @@ scope). For modes, copiers, configuration, limitations, and Kotlin version suppo
 
 ## Relation to DeCoroutinator
 
-[DeCoroutinator](https://github.com/Anamorphosee/stacktrace-decoroutinator) solves the same problem,
-always-on and globally — full continuation-chain reconstruction everywhere. traceweave is the targeted
-alternative: opt-in per function or class, nothing instrumented that you didn't ask for. Need full global
-reconstruction? Use DeCoroutinator.
+[DeCoroutinator](https://github.com/Anamorphosee/stacktrace-decoroutinator) focuses on reconstructing
+coroutine stacks broadly at runtime. traceweave takes a targeted compile-time approach: only selected
+functions/classes are instrumented.
+
+They're complementary more than competing — just different trade-offs. If you want full, global
+reconstruction out of the box, DeCoroutinator is a great fit; if you'd rather instrument only a handful
+of functions and leave everything else untouched, that's where traceweave comes in.
 
 ## Why this exists
 

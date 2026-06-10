@@ -84,7 +84,7 @@ To make a copy of the same type, COPY tries the following in order and uses the 
    guarantees its own copy, no registration needed, and you copy any custom fields yourself.
 2. **A registered copier** — a copier contributed for that exact type via `TraceWeave.register` or a
    `TraceWeaveCopierProvider` service. This is the path for third-party types you don't own.
-3. **The built-in copier table** — hardcoded copiers for common JDK/Kotlin exceptions
+3. **The built-in copier table** — hardcoded copiers for common Java/Kotlin exceptions
    (`IllegalStateException`, `IOException`, `NumberFormatException`, and many more), with no reflection.
 4. **Reflection** — an opt-in fallback that probes the type's constructors (`(String, Throwable)`,
    `(String)`, `(Throwable)`, `()`) to rebuild it. Off by default.
