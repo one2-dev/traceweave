@@ -9,4 +9,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "traceweave-sample"
+rootProject.name = "traceweave-gradle-plugin-e2e-tests"
