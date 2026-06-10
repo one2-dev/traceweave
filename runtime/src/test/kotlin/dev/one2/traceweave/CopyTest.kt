@@ -72,7 +72,7 @@ class CopyTest {
     val outer = handle(inner, "C", "outer", "C.kt", 2)
     assertSame(inner, outer)
     assertSame(original, outer.cause)
-    assertEquals(1, outer.stackTrace.count { it.className == Copy.MARKER })
+    assertEquals(1, outer.stackTrace.count { it.className == Copy.MARKER && it.fileName == Copy.WEAVE_LABEL })
     val names = outer.stackTrace.map { it.methodName }
     assertTrue(names.indexOf("inner") < names.indexOf("outer"))
   }
@@ -128,7 +128,7 @@ class CopyTest {
     runBlocking {
       configure { mode = Mode.COPY }
       val result = requireNotNull(runCatching { tracedOuterCopy() }.exceptionOrNull())
-      val marker = result.stackTrace.indexOfFirst { it.className == Copy.MARKER }
+      val marker = result.stackTrace.indexOfFirst { it.className == Copy.MARKER && it.fileName == Copy.WEAVE_LABEL }
       val afterMarker = result.stackTrace.drop(marker + 1).map { it.methodName }
       // The reconstruction (everything after the marker) leads with the real throw leaf, then the caller.
       assertEquals("failingInnerCopy", afterMarker.first())
@@ -143,8 +143,8 @@ class CopyTest {
     }
     val original = IllegalStateException(TestHelper.MESSAGE)
     val result = TestHelper.handleDefault(original)
-    val cause = result.stackTrace.indexOfFirst { it.className == Copy.CAUSE_MARKER }
-    val marker = result.stackTrace.indexOfFirst { it.className == Copy.MARKER }
+    val cause = result.stackTrace.indexOfFirst { it.className == Copy.MARKER && it.fileName == Copy.SEED_LABEL }
+    val marker = result.stackTrace.indexOfFirst { it.className == Copy.MARKER && it.fileName == Copy.WEAVE_LABEL }
     // The cause sentinel heads the seed, then exactly one seed frame, then the reconstruction marker.
     assertTrue(cause in 0 until marker)
     assertEquals(1, marker - cause - 1)
@@ -159,8 +159,8 @@ class CopyTest {
     val original = IllegalStateException(TestHelper.MESSAGE)
     val result = TestHelper.handleDefault(original)
     // With no seed there must be exactly one marker overall: the reconstruction marker, no cause label.
-    assertEquals(0, result.stackTrace.count { it.className == Copy.CAUSE_MARKER })
-    assertEquals(1, result.stackTrace.count { it.className == Copy.MARKER })
+    assertEquals(0, result.stackTrace.count { it.className == Copy.MARKER && it.fileName == Copy.SEED_LABEL })
+    assertEquals(1, result.stackTrace.count { it.className == Copy.MARKER && it.fileName == Copy.WEAVE_LABEL })
     assertEquals(Copy.MARKER, result.stackTrace.first().className)
   }
 }
