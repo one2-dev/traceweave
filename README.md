@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="traceweave" width="128">
+</p>
+
 # traceweave
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/circleci/LjzPJXeYoL47FCi2q2LtR/D37Xb21s1vNzR8ttawDdZi/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/LjzPJXeYoL47FCi2q2LtR/D37Xb21s1vNzR8ttawDdZi/tree/master)
