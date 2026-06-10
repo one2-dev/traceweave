@@ -2,7 +2,7 @@ package dev.one2.traceweave.mode
 
 /**
  * How a lost coroutine caller frame is reconstructed. The handler delegates to the active strategy's
- * [weave]; the two built-ins are [InplaceMode] and [CopyMode], carried by [Mode.strategy].
+ * [weave]; the two built-ins are [InplaceMode] and [CopyMode], selected via [Mode].
  *
  * This is a public extension point: implement it and pass it to `configure { strategy = ... }` to
  * replace how traceweave handles a caught exception with your own logic, instead of the built-in modes.

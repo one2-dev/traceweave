@@ -6,50 +6,37 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Kotlin compiler IR plugin that reconstructs coroutine call chains in exception stack traces.
+Readable coroutine stack traces, on your terms. A Kotlin compiler plugin + runtime that rebuilds the
+caller chain lost at suspension points — only for the functions you point it at, not everywhere.
 
 ## The problem
 
 Kotlin coroutines lose caller frames across suspension points. On resume, only the resuming
-`invokeSuspend` is physically on the JVM stack, and the original call chain is gone.
+`invokeSuspend` is left on the JVM stack — the original call chain is gone.
 
 ## How it works
 
-**Compile time.** The IR plugin walks every traced function and wraps each suspend call-site in a
-`try/catch`. The call-site coordinates (`ClassName`, `methodName`, `fileName`, `lineNumber`) are
-resolved at compile time and baked directly into the generated catch block.
+Three pieces — you only apply the Gradle plugin, which sets up the other two:
 
-**On exception.** The catch block calls `insertCoroutineFrame()` from the runtime module, which
-inserts a synthetic `StackTraceElement` into the exception's stack trace at the right position,
-then rethrows. A `WeakHashMap<Throwable, depth>` tracks how many frames have already been inserted
-for each exception, so as it unwinds through nested traced call-sites each outer frame lands one
-position deeper, preserving callee-to-caller order without any markers in the frames.
-`CancellationException` is passed through untouched to not interfere with structured concurrency.
+- **Gradle plugin** (`:gradle-plugin`) — the one thing you apply. It wires the compiler plugin into your
+  Kotlin/JVM build, pulls in the matching `:runtime` for you, and switches the runtime on for
+  Gradle-launched JVMs (tests, `application` run) — so it's ready to use without extra setup.
+- **Compile time** (`:compiler`) — wraps each traced suspend call-site in a `try/catch` and bakes in its
+  source location (class, method, file, line).
+- **Runtime** (`:runtime`) — when an exception flies through that `catch`, `TraceWeave.handle` stitches
+  the lost frame back into the stack trace and rethrows.
 
-**Tail-call frames.** The `try/catch` is also a side-effect fix for Kotlin's tail-call optimization:
-the compiler cannot eliminate a tail call that is inside a `try` block, so frames that would
-otherwise be invisible reappear automatically.
-
-## Modules
-
-| Module | Artifact | Purpose |
-|---|---|---|
-| `:runtime` | `dev.one2.traceweave:runtime` | `@TraceWeave` annotation + `insertCoroutineFrame()` |
-| `:compiler` | `dev.one2.traceweave:compiler` | Kotlin IR compiler plugin |
-| `:gradle-plugin` | `dev.one2.traceweave:gradle-plugin` | Gradle plugin (`dev.one2.traceweave`) |
+It stays out of the way: inert until you turn it on, best-effort (a failure never changes your
+exception), and `CancellationException` passes straight through.
 
 ## Usage
 
-Add the dependency and apply the Gradle plugin:
+Apply the Gradle plugin — it adds the matching runtime for you:
 
 ```kotlin
 // build.gradle.kts
 plugins {
     id("dev.one2.traceweave")
-}
-
-dependencies {
-    implementation("dev.one2.traceweave:runtime:<version>")
 }
 ```
 
@@ -75,50 +62,35 @@ class MyService {
 }
 ```
 
-
-## Known limitations
-
-**Duplicate frames in non-suspending call chains.** The runtime inserts frames based on a depth
-counter without analyzing whether a gap in the trace actually exists. For coroutine functions that
-never reach a real suspension point (no `delay`, no IO, etc.) the underlying JVM frames are already
-on the stack when the exception is thrown, and the Kotlin state machine can also visit the same
-catch block more than once. The result is that synthetic frames may appear alongside the real JVM
-frames, duplicating some entries.
-
-The best way to avoid this is to keep the traced scope narrow. Instead of tracing entire packages,
-annotate only the functions where missing frames actually matter:
-
-```kotlin
-@TraceWeave
-suspend fun importantService() { ... }    // traced
-suspend fun fastNoSuspendHelper() { ... } // not traced, no duplicate risk
-```
-
-## Kotlin version compatibility
-
-The plugin uses Kotlin's IR compiler API, which is not stable and can change between Kotlin releases.
-It is currently tested and known to work with **Kotlin 2.3.0**. Other versions may or may not work.
-
+That's enough to get readable traces. traceweave is **JVM-only** (Kotlin/Native and Kotlin/JS are out of
+scope). For modes, copiers, configuration, limitations, and Kotlin version support, see the
+**[detailed guide](docs/detailed.md)**.
 
 ## Relation to DeCoroutinator
 
-[DeCoroutinator](https://github.com/Anamorphosee/stacktrace-decoroutinator) solves the same problem
-and also supports compile-time transformation. The difference is scope: DeCoroutinator is a thorough
-solution with multiple integration modes, full continuation-chain reconstruction, and global coverage.
-traceweave is intentionally minimal: opt-in per class, no runtime machinery, does its job and stops.
-If you need always-on full reconstruction, use DeCoroutinator.
+[DeCoroutinator](https://github.com/Anamorphosee/stacktrace-decoroutinator) solves the same problem,
+always-on and globally — full continuation-chain reconstruction everywhere. traceweave is the targeted
+alternative: opt-in per function or class, nothing instrumented that you didn't ask for. Need full global
+reconstruction? Use DeCoroutinator.
 
 ## Why this exists
 
-Debugging coroutines with a stack trace that stops at `invokeSuspend` gets old fast. DeCoroutinator
-solves this well, but it works globally and reconstructs the full coroutine call chain everywhere.
-I only needed readable traces for a specific handful of suspend functions in my codebase. Everything
-else didn't matter.
-
-So I built something that lets you point at exactly the functions you care about and leaves the rest
-alone. That's it, really. If it's useful to you too, great 🙂
+I only needed readable traces for a specific handful of suspend functions — not everywhere. So I built
+something that lets you point at exactly the functions you care about and leaves the rest alone:
+targeted, opt-in, nothing instrumented that you didn't ask for. That's it, really. If it's useful to you
+too, great 🙂
 
 Maybe something like this already exists and I just didn't look hard enough 😂
+
+## Contributing & roadmap
+
+This is mostly driven by what I need, so updates land as my free time allows. There's no fixed roadmap.
+
+If you want something, open an issue — I'm happy to leave the request open, and I'll get to it when I
+can. PRs are welcome too, with two rules:
+
+- they must come with tests, and
+- they must not break the existing ones.
 
 ## License
 
