@@ -47,8 +47,8 @@ traceweave, by coroutine recovery, or by `DebugProbes` — it is skipped, so fra
 Writes the synthetic frame onto a **fresh copy of the same type** and rethrows the copy; the original is
 left untouched and becomes the copy's `cause`. The copy's stack trace reads as a clean reconstruction: an
 optional **seed** — the top frames of the original (up to the first coroutine-machinery frame), headed by
-a `--- @TraceWeave (from cause) ---` sentinel that marks them as copied from the cause — then the
-`--- @TraceWeave ---` marker, then the reconstructed chain itself: the real throw-site leaf followed by
+a `--- @TraceWeave ---.(by cause seed)` sentinel that marks them as copied from the cause — then the
+`--- @TraceWeave ---.(weaved)` marker, then the reconstructed chain itself: the real throw-site leaf followed by
 each woven caller. On the next unwind level traceweave recognises the copy by the marker and simply
 appends the next caller, so a whole chain produces exactly one copy. The full original trace always stays
 available through the cause chain. The seed depth is configurable via `copySeedFrames` (default 1; `0`

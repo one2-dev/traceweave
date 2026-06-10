@@ -15,8 +15,11 @@ import java.util.Collections
  * chained as cause) and rethrows the copy, leaving the original exception untouched.
  */
 internal object CopyMode : ModeStrategy {
-  private val MARKER_FRAME = StackTraceElement(Copy.MARKER, "", null, -1)
-  private val CAUSE_MARKER_FRAME = StackTraceElement(Copy.CAUSE_MARKER, "", null, -1)
+  // Both markers share the Copy.MARKER class name; the role rides in the fileName slot, so they render
+  // as `--- @TraceWeave ---.(weaved)` / `--- @TraceWeave ---.(by cause seed)`. A present (non-null)
+  // fileName also avoids the noisier `(Unknown Source)` that StackTraceElement.toString() emits for null.
+  private val MARKER_FRAME = StackTraceElement(Copy.MARKER, "", Copy.WEAVE_LABEL, -1)
+  private val SEED_MARKER_FRAME = StackTraceElement(Copy.MARKER, "", Copy.SEED_LABEL, -1)
 
   // One warning per class we fall back on, so a recurring unsupported/misbehaving type cannot flood the
   // log. A given class always fails the same way, so a single entry per class is enough.
@@ -52,7 +55,7 @@ internal object CopyMode : ModeStrategy {
     val reconstructed = if (origin != null) arrayOf(origin, frame) else arrayOf(frame)
     // Before the marker, a labelled copy of the throw-site head, taken from the original (now the cause).
     val seedFrames = seed(error)
-    val seedSection = if (seedFrames.isEmpty()) emptyArray() else arrayOf(CAUSE_MARKER_FRAME) + seedFrames
+    val seedSection = if (seedFrames.isEmpty()) emptyArray() else arrayOf(SEED_MARKER_FRAME) + seedFrames
     copy.stackTrace = seedSection + MARKER_FRAME + reconstructed
     if (copy.stackTrace.isEmpty()) {
       // An unwritable copy (writableStackTrace = false) silently drops the assignment above.

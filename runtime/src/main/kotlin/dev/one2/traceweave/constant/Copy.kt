@@ -5,12 +5,14 @@ import dev.one2.traceweave.annotation.TraceWeave
 object Copy {
   // Sentinel placed in a synthetic frame's declaringClass to mark "this is already our copy". It is
   // not a valid Java identifier, so no real class name collides with it -- which is why membership can
-  // live in the stack trace itself instead of a global set.
+  // live in the stack trace itself instead of a global set. Both marker frames share this class name;
+  // their role rides in the fileName slot (see below).
   val MARKER = "--- @${TraceWeave::class.java.simpleName} ---"
 
-  // Sentinel heading the seed frames, labelling them as copied from the original (now the `cause`). A
-  // separate string from MARKER so the copy-detection in wasCopied() never mistakes it for the marker.
-  val CAUSE_MARKER = "--- @${TraceWeave::class.java.simpleName} (from cause) ---"
+  // Role of each marker, carried in its fileName so the trace reads `--- @TraceWeave ---.(weaved)` for
+  // the reconstruction marker and `--- @TraceWeave ---.(by cause seed)` over the cause-seeded frames.
+  const val WEAVE_LABEL = "weaved"
+  const val SEED_LABEL = "by cause seed"
 
   // Default seed depth: how many leading throw-site frames COPY copies before the marker.
   const val DEFAULT_SEED_FRAMES = 1
