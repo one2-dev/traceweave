@@ -5,7 +5,19 @@ import com.tschuchort.compiletesting.PluginOption
 import com.tschuchort.compiletesting.SourceFile
 import dev.one2.traceweave.TraceWeave.configure
 import dev.one2.traceweave.mode.Mode
+import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
+import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrTry
+import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -75,6 +87,24 @@ class TraceWeavePluginTest {
     assertTrue(result.messages.contains("v: [traceweave] instrumented"), result.messages)
   }
 
+  @Test
+  fun wrappedCallKeepsTheOriginalSourceOffsets() {
+    val records = mutableListOf<OffsetRecord>()
+    val result = compile(source(annotated = true), extraRegistrars = listOf(CaptureRegistrar(records)))
+    assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode, result.messages)
+
+    // The plugin wrapped at least one suspend call (e.g. outer() -> inner()).
+    assertTrue(records.isNotEmpty(), "no wrapped suspend call was captured")
+    records.forEach { r ->
+      // Real source positions, not UNDEFINED_OFFSET (-1) / SYNTHETIC_OFFSET (-2).
+      assertTrue(r.callStart >= 0 && r.callEnd >= 0, "wrapped call lost its source offsets: $r")
+      // The synthetic try carries the wrapped call's exact offsets, so the line-number table stays
+      // aligned -- breakpoints on the call line and step-into keep working.
+      assertEquals(r.callStart, r.tryStart, "try startOffset diverged from the wrapped call: $r")
+      assertEquals(r.callEnd, r.tryEnd, "try endOffset diverged from the wrapped call: $r")
+    }
+  }
+
   private fun source(annotated: Boolean): SourceFile {
     val mark = if (annotated) "@TraceWeave" else ""
     return SourceFile.kotlin(
@@ -112,10 +142,11 @@ class TraceWeavePluginTest {
     prefixes: List<String> = emptyList(),
     excluded: List<String> = emptyList(),
     verbose: Boolean = false,
+    extraRegistrars: List<CompilerPluginRegistrar> = emptyList(),
   ) = KotlinCompilation()
     .apply {
       sources = listOf(source)
-      compilerPluginRegistrars = listOf(TraceWeavePluginRegistrar())
+      compilerPluginRegistrars = listOf(TraceWeavePluginRegistrar()) + extraRegistrars
       commandLineProcessors = listOf(TraceWeaveCommandLineProcessor())
       pluginOptions =
         buildList {
@@ -173,5 +204,47 @@ class TraceWeavePluginTest {
 
   private companion object {
     const val PLUGIN_ID = "dev.one2.traceweave"
+  }
+}
+
+private data class OffsetRecord(
+  val tryStart: Int,
+  val tryEnd: Int,
+  val callStart: Int,
+  val callEnd: Int,
+)
+
+// Registered AFTER the traceweave plugin so it observes the transformed IR: records the offsets of every
+// IrTry that wraps a suspend call, letting a test assert the plugin keeps the wrapped call's source
+// offsets (and thus the line-number table) intact.
+@OptIn(ExperimentalCompilerApi::class)
+private class CaptureRegistrar(private val sink: MutableList<OffsetRecord>) : CompilerPluginRegistrar() {
+  override val pluginId: String = "traceweave-offset-capture"
+  override val supportsK2: Boolean = true
+
+  override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
+    IrGenerationExtension.registerExtension(OffsetCaptureExtension(sink))
+  }
+}
+
+private class OffsetCaptureExtension(private val sink: MutableList<OffsetRecord>) : IrGenerationExtension {
+  @OptIn(UnsafeDuringIrConstructionAPI::class)
+  override fun generate(
+    moduleFragment: IrModuleFragment,
+    pluginContext: IrPluginContext,
+  ) {
+    moduleFragment.acceptVoid(
+      object : IrVisitorVoid() {
+        override fun visitElement(element: IrElement) {
+          if (element is IrTry) {
+            val result = element.tryResult
+            if (result is IrCall && result.symbol.owner.isSuspend) {
+              sink += OffsetRecord(element.startOffset, element.endOffset, result.startOffset, result.endOffset)
+            }
+          }
+          element.acceptChildrenVoid(this)
+        }
+      },
+    )
   }
 }
