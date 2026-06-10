@@ -15,8 +15,25 @@ gradlePlugin {
       id = "dev.one2.traceweave"
       implementationClass = "dev.one2.traceweave.gradle.TraceWeavePlugin"
       displayName = "traceweave"
-      description = "Kotlin IR plugin that reconstructs coroutine call chains in exception stack traces"
-      tags = listOf("kotlin", "coroutines", "stacktrace")
+      description = "Sets up targeted, opt-in coroutine stack-trace reconstruction for Kotlin/JVM: " +
+        "applies the traceweave compiler plugin and runtime so caller frames lost at suspension points " +
+        "are rebuilt — only for the functions you choose to trace."
+      tags =
+        listOf(
+          "kotlin",
+          "coroutines",
+          "suspend",
+          "stacktrace",
+          "stack-trace",
+          "exception",
+          "debugging",
+          "diagnostics",
+          "observability",
+          "compiler-plugin",
+          "kotlin-compiler-plugin",
+          "ir",
+          "jvm",
+        )
     }
   }
 }
@@ -45,8 +62,8 @@ dependencies {
 tasks.test {
   useJUnitPlatform()
   systemProperty(
-    "traceweave.sample.dir",
-    layout.projectDirectory.dir("../sample").asFile.absolutePath,
+    "traceweave.e2e.dir",
+    layout.projectDirectory.dir("e2e-tests").asFile.absolutePath,
   )
   systemProperty(
     "traceweave.repo.dir",
