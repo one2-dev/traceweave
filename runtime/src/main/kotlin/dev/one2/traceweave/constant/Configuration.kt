@@ -7,5 +7,6 @@ object Configuration {
   const val PROP_MODE = PROP_PREFIX + "mode"
   const val PROP_ENABLED = PROP_PREFIX + "enabled"
   const val PROP_REFLECTION = PROP_PREFIX + "copy.reflection"
+  const val PROP_SEED_FRAMES = PROP_PREFIX + "copy.seedFrames"
   const val LOGGER_NAME = "dev.one2.traceweave"
 }

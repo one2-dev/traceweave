@@ -16,6 +16,7 @@ import java.util.Collections
  */
 internal object CopyMode : ModeStrategy {
   private val MARKER_FRAME = StackTraceElement(Copy.MARKER, "", null, -1)
+  private val CAUSE_MARKER_FRAME = StackTraceElement(Copy.CAUSE_MARKER, "", null, -1)
 
   // One warning per class we fall back on, so a recurring unsupported/misbehaving type cannot flood the
   // log. A given class always fails the same way, so a single entry per class is enough.
@@ -45,7 +46,14 @@ internal object CopyMode : ModeStrategy {
       warnOnce(error) { "traceweave: no copier for ${error.javaClass.name}; using the original" }
       return error
     }
-    copy.stackTrace = seed(error) + MARKER_FRAME + frame
+    // After the marker, the readable reconstruction: the real throw leaf followed by the woven caller
+    // (further callers are appended on each later unwind level via the wasCopied() branch above).
+    val origin = error.stackTrace.firstOrNull()
+    val reconstructed = if (origin != null) arrayOf(origin, frame) else arrayOf(frame)
+    // Before the marker, a labelled copy of the throw-site head, taken from the original (now the cause).
+    val seedFrames = seed(error)
+    val seedSection = if (seedFrames.isEmpty()) emptyArray() else arrayOf(CAUSE_MARKER_FRAME) + seedFrames
+    copy.stackTrace = seedSection + MARKER_FRAME + reconstructed
     if (copy.stackTrace.isEmpty()) {
       // An unwritable copy (writableStackTrace = false) silently drops the assignment above.
       warnOnce(error) {
@@ -57,12 +65,18 @@ internal object CopyMode : ModeStrategy {
     return copy
   }
 
-  // The real throw-site head of [flying], up to (but not including) the first coroutine-machinery
-  // frame, so the copy's own trace points at where it was thrown; the full original lives in the cause.
+  // The real throw-site head of [flying], up to (but not including) the first coroutine-machinery frame,
+  // capped at the configured [TraceWeave.copySeedFrames] depth (0 disables it). Copied onto the fresh
+  // copy so its own trace points at where it was thrown; the full original lives in the cause.
   private fun seed(flying: Throwable): Array<StackTraceElement> {
+    val max = TraceWeave.copySeedFrames()
+    if (max <= 0) {
+      return emptyArray()
+    }
     val st = flying.stackTrace
     val cut = st.indexOfFirst { it.isCoroutineMachinery() }
-    return if (cut < 0) st else st.copyOfRange(0, cut)
+    val end = if (cut < 0) st.size else cut
+    return st.copyOfRange(0, minOf(end, max))
   }
 
   // Resolution order: owned interface -> registered copier (app/library) -> built-in table ->

@@ -45,13 +45,16 @@ traceweave, by coroutine recovery, or by `DebugProbes` — it is skipped, so fra
 ### COPY
 
 Writes the synthetic frame onto a **fresh copy of the same type** and rethrows the copy; the original is
-left untouched and becomes the copy's `cause`. The copy's own stack trace is seeded with the real
-throw-site (the top frames of the original, up to the first coroutine-machinery frame) so it is
-self-sufficient, while the full original trace stays available through the cause chain. A sentinel marker
-frame (`--- @TraceWeave ---`) is written into the copy; on the next unwind level traceweave recognises
-the copy by that marker and simply appends the next frame, so a whole chain produces exactly one copy.
-Suppressed exceptions are carried over to the copy. If no copy can be made (see resolution order below),
-COPY falls back to returning the original untouched.
+left untouched and becomes the copy's `cause`. The copy's stack trace reads as a clean reconstruction: an
+optional **seed** — the top frames of the original (up to the first coroutine-machinery frame), headed by
+a `--- @TraceWeave (from cause) ---` sentinel that marks them as copied from the cause — then the
+`--- @TraceWeave ---` marker, then the reconstructed chain itself: the real throw-site leaf followed by
+each woven caller. On the next unwind level traceweave recognises the copy by the marker and simply
+appends the next caller, so a whole chain produces exactly one copy. The full original trace always stays
+available through the cause chain. The seed depth is configurable via `copySeedFrames` (default 1; `0`
+drops the seed so the copy's trace starts at the marker). Suppressed exceptions are carried over to the
+copy. If no copy can be made (see resolution order below), COPY falls back to returning the original
+untouched.
 
 ### CUSTOM
 
@@ -65,7 +68,7 @@ your own terms.
 |-----------------------|---------------------------------|-------------------------------------------------|
 | Where frames go       | into the original               | into a copy (same type)                         |
 | Original exception    | mutated, rethrown               | untouched, becomes the `cause`                  |
-| Resulting trace       | real + synthetic interleaved    | throw-site seed + synthetic; full original in cause |
+| Resulting trace       | real + synthetic interleaved    | labelled seed + marker + reconstructed chain; full original in cause |
 | Level tracking        | per-instance position counter   | marker frame in the trace (append-only)         |
 | Global state          | the counter map                 | none                                            |
 | If it can't proceed   | passes through (no frames)      | passes through (no frames; warns once per type) |
@@ -113,6 +116,7 @@ TraceWeave.configure {
     mode = Mode.INPLACE         // INPLACE (default) | COPY | CUSTOM
     strategy = null             // a custom ModeStrategy; when set, overrides `mode` (implies CUSTOM)
     reflectionCopy = false      // allow COPY's reflection fallback. Default: false
+    copySeedFrames = 1          // COPY: throw-site frames seeded before the marker; 0 = none. Default: 1
 }
 ```
 
@@ -177,6 +181,7 @@ For the zero-config Gradle path, policy can come from system properties instead 
 traceweave.enabled=true          # activation gate; absent or false -> inert. Default: false
 traceweave.mode=inplace          # inplace | copy. Default: inplace
 traceweave.copy.reflection=false # allow COPY's reflection fallback. Default: false
+traceweave.copy.seedFrames=1     # COPY: throw-site frames seeded before the marker; 0 = none. Default: 1
 ```
 
 - `traceweave.enabled` — the activation gate. The Gradle plugin sets this for Gradle-launched JVMs (tests
@@ -184,6 +189,8 @@ traceweave.copy.reflection=false # allow COPY's reflection fallback. Default: fa
 - `traceweave.mode` — `inplace` or `copy`. `CUSTOM` cannot be selected this way: a strategy can only be
   supplied in code.
 - `traceweave.copy.reflection` — `true` to allow COPY's reflection fallback.
+- `traceweave.copy.seedFrames` — how many throw-site frames COPY seeds before the marker (labelled as
+  coming from the cause); `0` drops the seed so the copy's trace starts at the marker.
 
 Pass them however you launch the JVM, e.g. `-Dtraceweave.mode=copy`.
 

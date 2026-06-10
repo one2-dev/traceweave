@@ -122,6 +122,47 @@ class CopyTest {
       assertTrue(result.stackTrace.any { it.methodName == "tracedOuterCopy" })
       assertNotNull(result.cause)
     }
+
+  @Test
+  fun reconstructionAfterMarkerLeadsWithTheThrowLeaf(): Unit =
+    runBlocking {
+      configure { mode = Mode.COPY }
+      val result = requireNotNull(runCatching { tracedOuterCopy() }.exceptionOrNull())
+      val marker = result.stackTrace.indexOfFirst { it.className == Copy.MARKER }
+      val afterMarker = result.stackTrace.drop(marker + 1).map { it.methodName }
+      // The reconstruction (everything after the marker) leads with the real throw leaf, then the caller.
+      assertEquals("failingInnerCopy", afterMarker.first())
+      assertTrue(afterMarker.indexOf("failingInnerCopy") < afterMarker.indexOf("tracedOuterCopy"))
+    }
+
+  @Test
+  fun seedIsLabelledFromCauseAndCappedAtTheConfiguredDepth() {
+    configure {
+      mode = Mode.COPY
+      copySeedFrames = 1
+    }
+    val original = IllegalStateException(TestHelper.MESSAGE)
+    val result = TestHelper.handleDefault(original)
+    val cause = result.stackTrace.indexOfFirst { it.className == Copy.CAUSE_MARKER }
+    val marker = result.stackTrace.indexOfFirst { it.className == Copy.MARKER }
+    // The cause sentinel heads the seed, then exactly one seed frame, then the reconstruction marker.
+    assertTrue(cause in 0 until marker)
+    assertEquals(1, marker - cause - 1)
+  }
+
+  @Test
+  fun zeroSeedFramesStartTheCopyAtTheMarkerWithoutACauseLabel() {
+    configure {
+      mode = Mode.COPY
+      copySeedFrames = 0
+    }
+    val original = IllegalStateException(TestHelper.MESSAGE)
+    val result = TestHelper.handleDefault(original)
+    // With no seed there must be exactly one marker overall: the reconstruction marker, no cause label.
+    assertEquals(0, result.stackTrace.count { it.className == Copy.CAUSE_MARKER })
+    assertEquals(1, result.stackTrace.count { it.className == Copy.MARKER })
+    assertEquals(Copy.MARKER, result.stackTrace.first().className)
+  }
 }
 
 private class OrderFailed(message: String, cause: Throwable? = null) :

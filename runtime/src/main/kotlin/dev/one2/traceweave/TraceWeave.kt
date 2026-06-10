@@ -1,6 +1,7 @@
 package dev.one2.traceweave
 
 import dev.one2.traceweave.constant.Configuration
+import dev.one2.traceweave.constant.Copy
 import dev.one2.traceweave.constant.Message
 import dev.one2.traceweave.copier.ExceptionCopier
 import dev.one2.traceweave.copier.TraceWeaveCopierProvider
@@ -48,7 +49,7 @@ object TraceWeave {
       builder.strategy
         ?: builder.mode.builtInStrategy()
         ?: error("Mode.CUSTOM requires a strategy; set one via configure { strategy = ... }")
-    val cfg = TraceWeaveConfig(strategy, builder.reflectionCopy)
+    val cfg = TraceWeaveConfig(strategy, builder.reflectionCopy, builder.copySeedFrames)
     if (configRef.getAndSet(cfg) != null) {
       logger.warn(Message.RECONFIGURE_WARNING)
     }
@@ -67,6 +68,9 @@ object TraceWeave {
   /** Whether COPY mode may fall back to the reflection copier; off unless policy enables it. */
   internal fun reflectionCopyEnabled(): Boolean = activeConfig()?.reflectionCopy ?: false
 
+  /** How many leading throw-site frames COPY copies into the rethrown copy's trace, before the marker. */
+  internal fun copySeedFrames(): Int = activeConfig()?.copySeedFrames ?: Copy.DEFAULT_SEED_FRAMES
+
   // Builds a policy from `traceweave.*` system properties. The activation gate is PROP_ENABLED (set by
   // the Gradle plugin): absent -> inert, "false" -> inert. Otherwise PROP_MODE picks a built-in mode;
   // CUSTOM is rejected here since a strategy cannot be supplied through a property.
@@ -77,9 +81,13 @@ object TraceWeave {
     }
     val raw = System.getProperty(Configuration.PROP_MODE)?.trim()?.uppercase() ?: Mode.INPLACE.name
     val reflectionCopy = System.getProperty(Configuration.PROP_REFLECTION)?.trim()?.toBoolean() ?: false
+    val copySeedFrames =
+      System.getProperty(Configuration.PROP_SEED_FRAMES)?.trim()?.toIntOrNull() ?: Copy.DEFAULT_SEED_FRAMES
     // CUSTOM has no built-in strategy, so it stays inert here -- a custom strategy can only be supplied
     // in code via configure {}.
-    return Mode.valueOf(raw).builtInStrategy()?.let { TraceWeaveConfig(strategy = it, reflectionCopy = reflectionCopy) }
+    return Mode.valueOf(raw).builtInStrategy()?.let {
+      TraceWeaveConfig(strategy = it, reflectionCopy = reflectionCopy, copySeedFrames = copySeedFrames)
+    }
   }
 
   // The built-in strategy for a mode, or null for CUSTOM (whose strategy is supplied via configure).
@@ -229,6 +237,7 @@ object TraceWeave {
 class TraceWeaveConfig internal constructor(
   val strategy: ModeStrategy,
   val reflectionCopy: Boolean,
+  val copySeedFrames: Int,
 )
 
 /** Mutable builder backing the [TraceWeave.configure] DSL. Policy only. */
@@ -247,4 +256,12 @@ class TraceWeaveConfigBuilder internal constructor() {
    * copier applies. Off by default (best-effort, slower); also settable via `traceweave.copy.reflection`.
    */
   var reflectionCopy: Boolean = false
+
+  /**
+   * Max number of leading throw-site frames COPY copies into the rethrown copy's trace, before the
+   * `--- @TraceWeave ---` marker; these are headed by a `(from cause)` sentinel since they come from the
+   * original (now the cause). `0` disables the seed, so the copy's trace starts at the marker. Default:
+   * 1. Also settable via `traceweave.copy.seedFrames`.
+   */
+  var copySeedFrames: Int = Copy.DEFAULT_SEED_FRAMES
 }
