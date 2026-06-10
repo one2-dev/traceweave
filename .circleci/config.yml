@@ -8,24 +8,61 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build & Publish
-          # release/v* publishes to Maven Central + Plugin Portal; every other branch publishes
-          # to ~/.m2 (`local`). One job covers all branches.
+          name: Build & verify
+          # Full build + tests, and publish to ~/.m2 (exercises signing). No remote publish.
+          command: bash build.sh local
+
+  release:
+    docker:
+      - image: cimg/openjdk:17.0
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Verify the tag is on master
+          # A release tag must point at a commit that is on master; refuse otherwise.
           command: |
-            if [[ "$CIRCLE_BRANCH" == release/v* ]]; then
-              bash build.sh
-            else
-              bash build.sh local
+            git fetch origin master
+            if ! git merge-base --is-ancestor "$CIRCLE_SHA1" FETCH_HEAD; then
+              echo "Tag $CIRCLE_TAG is not on master; refusing to release."
+              exit 1
             fi
+      - run:
+          name: Build & publish release
+          # release/v* is gone — the tag (vX.Y.Z) drives the published version (see build.sh).
+          command: bash build.sh
 
 workflows:
-  build-test-deploy:
+  # Build only on master and on pull requests.
+  build:
     jobs:
+      # master builds automatically on every push.
       - build:
+          name: build-master
           filters:
             branches:
-              only:
-                - master
-                - develop
-                - pull/*
-                - /^release\/v.*/
+              only: master
+      # Any other branch (i.e. a PR) needs a maintainer to approve before it uses CI compute, so simply
+      # opening or updating a PR cannot consume build minutes on its own.
+      - hold:
+          type: approval
+          filters:
+            branches:
+              ignore: master
+      - build:
+          name: build-pr
+          requires:
+            - hold
+          filters:
+            branches:
+              ignore: master
+
+  # Release on a version tag (cut from master).
+  release:
+    jobs:
+      - release:
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+.*/
+            branches:
+              ignore: /.*/
