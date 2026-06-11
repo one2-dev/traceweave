@@ -4,6 +4,25 @@ All notable changes to traceweave are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1]
+
+A maintenance release: moves the build to Kotlin 2.4.0 and refreshes dependencies, with no changes to
+the runtime API or behavior. The compiler plugin still compiles and passes its tests on both Kotlin
+2.3.0 and 2.4.0.
+
+### Changed
+
+- **Kotlin 2.3.0 → 2.4.0.** The `:compiler` plugin is now built against the Kotlin 2.4.0 IR compiler API
+  while remaining compatible with 2.3.0.
+- **Refreshed dependencies** — kotlinx-coroutines `1.11.0`, slf4j `2.0.18`, logback `1.5.34`,
+  ktlint-gradle `14.2.0`, Gradle plugin-publish `2.1.0`.
+
+### Added
+
+- **`docs/ir-compiler.md`** — tracks the IR compiler API deprecations the plugin deliberately keeps using
+  for cross-version (2.3.0/2.4.0) compatibility, and the policy for when a removal forces a migration and
+  a minimum-version bump.
+
 ## [0.1.0]
 
 The runtime grew from a single fixed behavior into a configurable, pluggable one — while staying inert
