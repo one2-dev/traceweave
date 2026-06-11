@@ -2,7 +2,7 @@ plugins {
   id("traceweave.conventions")
   id("traceweave.publish")
   `java-gradle-plugin`
-  id("com.gradle.plugin-publish") version "1.3.1"
+  id("com.gradle.plugin-publish") version "2.1.0"
 }
 
 val kotlinVersion: String by project
@@ -47,7 +47,13 @@ val writeVersion by tasks.registering(WriteProperties::class) {
 }
 
 sourceSets.main {
-  resources.srcDir(writeVersion.map { it.destinationFile.get().asFile.parentFile })
+  resources.srcDir(
+    writeVersion.map {
+      it.destinationFile
+        .get()
+        .asFile.parentFile
+    },
+  )
 }
 
 dependencies {
@@ -63,11 +69,16 @@ tasks.test {
   useJUnitPlatform()
   systemProperty(
     "traceweave.e2e.dir",
-    layout.projectDirectory.dir("e2e-tests").asFile.absolutePath,
+    layout.projectDirectory
+      .dir("e2e-tests")
+      .asFile.absolutePath,
   )
   systemProperty(
     "traceweave.repo.dir",
-    rootProject.layout.buildDirectory.dir("test-repo").get().asFile.absolutePath,
+    rootProject.layout.buildDirectory
+      .dir("test-repo")
+      .get()
+      .asFile.absolutePath,
   )
   dependsOn(
     ":runtime:publishAllPublicationsToTestRepoRepository",

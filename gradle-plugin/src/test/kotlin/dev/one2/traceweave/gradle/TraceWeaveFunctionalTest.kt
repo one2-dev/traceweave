@@ -23,7 +23,8 @@ class TraceWeaveFunctionalTest {
     consumerDir.copyToExcludingBuildDirs(tmp)
 
     val result =
-      GradleRunner.create()
+      GradleRunner
+        .create()
         .withProjectDir(tmp)
         .withArguments("test", "-PtraceweaveRepo=${repoDir.toURI()}", "--stacktrace")
         .withPluginClasspath()

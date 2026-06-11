@@ -25,11 +25,10 @@ private val customStrategy =
       methodName: String,
       fileName: String,
       lineNumber: Int,
-    ): Throwable {
-      return error.apply {
+    ): Throwable =
+      error.apply {
         stackTrace = emptyArray()
       }
-    }
   }
 
 private val scenarios: List<Pair<String, () -> Unit>> =

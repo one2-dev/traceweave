@@ -68,7 +68,6 @@ class LoggerTest {
 
 // A throwable that refuses stack-trace mutation, forcing handle() down its best-effort catch path.
 private class HostileException : RuntimeException("hostile") {
-  override fun setStackTrace(stackTrace: Array<StackTraceElement>) {
+  override fun setStackTrace(stackTrace: Array<StackTraceElement>): Unit =
     throw IllegalStateException("stack trace is immutable here")
-  }
 }

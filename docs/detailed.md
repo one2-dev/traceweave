@@ -235,7 +235,13 @@ rather than the same instance — see [Modes](#modes).
 ## Kotlin version compatibility
 
 The plugin uses Kotlin's IR compiler API, which is not stable and can change between Kotlin releases. It
-is currently tested and known to work with **Kotlin 2.3.0**. Other versions may or may not work.
+is currently tested and known to work with **Kotlin 2.3.0 and 2.4.0**. Other versions may or may not
+work.
+
+To keep a single source tree compiling across that range, the plugin deliberately keeps using some IR
+API that newer Kotlin versions have deprecated (the deprecated form is what still works on the older
+floor). Those deprecations — and the policy for when a removal forces a migration and a minimum-version
+bump — are tracked in **[IR compiler API compatibility & deprecations](ir-compiler.md)**.
 
 ## Why this matters
 

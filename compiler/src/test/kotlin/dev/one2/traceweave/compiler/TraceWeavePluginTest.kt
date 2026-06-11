@@ -218,7 +218,9 @@ private data class OffsetRecord(
 // IrTry that wraps a suspend call, letting a test assert the plugin keeps the wrapped call's source
 // offsets (and thus the line-number table) intact.
 @OptIn(ExperimentalCompilerApi::class)
-private class CaptureRegistrar(private val sink: MutableList<OffsetRecord>) : CompilerPluginRegistrar() {
+private class CaptureRegistrar(
+  private val sink: MutableList<OffsetRecord>,
+) : CompilerPluginRegistrar() {
   override val pluginId: String = "traceweave-offset-capture"
   override val supportsK2: Boolean = true
 
@@ -227,7 +229,9 @@ private class CaptureRegistrar(private val sink: MutableList<OffsetRecord>) : Co
   }
 }
 
-private class OffsetCaptureExtension(private val sink: MutableList<OffsetRecord>) : IrGenerationExtension {
+private class OffsetCaptureExtension(
+  private val sink: MutableList<OffsetRecord>,
+) : IrGenerationExtension {
   @OptIn(UnsafeDuringIrConstructionAPI::class)
   override fun generate(
     moduleFragment: IrModuleFragment,

@@ -165,19 +165,27 @@ class CopyTest {
   }
 }
 
-private class OrderFailed(message: String, cause: Throwable? = null) :
-  RuntimeException(message, cause), TraceWeaveException {
+private class OrderFailed(
+  message: String,
+  cause: Throwable? = null,
+) : RuntimeException(message, cause),
+  TraceWeaveException {
   override fun copyWithCause(cause: Throwable): Throwable = OrderFailed(message ?: "", cause)
 }
 
 // copyWithCause hands back an instance built with writableStackTrace = false, so traceweave cannot
 // stamp frames onto it -- the empty-copy guard must kick in and the original is used.
-private class UnwritableOwned(message: String) : RuntimeException(message), TraceWeaveException {
+private class UnwritableOwned(
+  message: String,
+) : RuntimeException(message),
+  TraceWeaveException {
   override fun copyWithCause(cause: Throwable): Throwable = object : RuntimeException(message, cause, true, false) {}
 }
 
 // No built-in copier and not TraceWeaveException -> COPY must pass it through untouched.
-private class CustomUnsupported(message: String) : RuntimeException(message)
+private class CustomUnsupported(
+  message: String,
+) : RuntimeException(message)
 
 private suspend fun failingInnerCopy(): Int {
   delay(1)

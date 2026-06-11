@@ -85,7 +85,13 @@ class TraceWeavePlugin : KotlinCompilerPluginSupportPlugin {
     const val FALLBACK_VERSION = "0.0.1"
 
     val VERSION: String =
-      TraceWeavePlugin::class.java.getResourceAsStream(VERSION_RESOURCE)
-        ?.use { java.util.Properties().apply { load(it) }.getProperty(VERSION_KEY) } ?: FALLBACK_VERSION
+      TraceWeavePlugin::class.java
+        .getResourceAsStream(VERSION_RESOURCE)
+        ?.use {
+          java.util
+            .Properties()
+            .apply { load(it) }
+            .getProperty(VERSION_KEY)
+        } ?: FALLBACK_VERSION
   }
 }

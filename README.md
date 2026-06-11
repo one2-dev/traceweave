@@ -7,7 +7,7 @@
 [![CircleCI](https://dl.circleci.com/status-badge/img/circleci/LjzPJXeYoL47FCi2q2LtR/D37Xb21s1vNzR8ttawDdZi/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/LjzPJXeYoL47FCi2q2LtR/D37Xb21s1vNzR8ttawDdZi/tree/master)
 [![Maven Central](https://img.shields.io/maven-central/v/dev.one2.traceweave/runtime?label=Maven%20Central&logo=apachemaven&color=blue)](https://central.sonatype.com/namespace/dev.one2.traceweave)
 [![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/dev.one2.traceweave?label=Gradle%20Plugin%20Portal&logo=gradle)](https://plugins.gradle.org/plugin/dev.one2.traceweave)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Readable coroutine stack traces, on your terms. A Kotlin compiler plugin + runtime that rebuilds the

@@ -64,4 +64,6 @@ class ReflectionCopyTest {
   }
 }
 
-private class NoStandardCtorException(code: Int) : RuntimeException("code=$code")
+private class NoStandardCtorException(
+  code: Int,
+) : RuntimeException("code=$code")
