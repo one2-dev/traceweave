@@ -4,6 +4,26 @@ All notable changes to traceweave are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2]
+
+A small runtime-API cleanup release. The owned-exception copy contract drops a parameter that could only
+ever be the receiver itself, and mode selection gets two no-argument shorthands. One breaking rename on
+the `TraceWeaveException` interface.
+
+### Changed
+
+- **`TraceWeaveException.copyWithCause(cause)` → `copyAsCause()`** *(breaking)*. The method is only ever
+  called on the in-flight exception with that same exception as the argument — it copies *itself*, so the
+  `cause` parameter was always `this` and is now gone. Implementations return a copy of their own type
+  chaining `this` as the cause: `override fun copyAsCause() = MyException(message, this)`.
+
+### Added
+
+- **`TraceWeave.configureInPlace()` / `TraceWeave.configureCopy()`** — no-argument shorthands that select
+  a built-in mode with all defaults, equivalent to `configure { mode = Mode.INPLACE }` /
+  `configure { mode = Mode.COPY }`. The full `configure { }` is unchanged and remains the way to tune the
+  COPY knobs (`reflectionCopy`, `copySeedFrames`) or supply a custom `strategy`.
+
 ## [0.1.1]
 
 A maintenance release: moves the build to Kotlin 2.4.0 and refreshes dependencies, with no changes to
