@@ -89,7 +89,7 @@ internal object CopyMode : ModeStrategy {
   private fun tryCopy(flying: Throwable): Throwable? {
     (flying as? TraceWeaveException)?.let { owned ->
       // Suppressed/custom-field transfer is the owned copier's responsibility (see the interface KDoc).
-      return owned.copyWithCause(flying)
+      return owned.copyAsCause()
     }
     TraceWeave.lookup(flying.javaClass)?.let { copier ->
       // Same contract as the interface: the user/library copier owns suppressed/custom-field transfer.

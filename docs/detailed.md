@@ -80,7 +80,7 @@ your own terms.
 To make a copy of the same type, COPY tries the following in order and uses the first that succeeds:
 
 1. **`TraceWeaveException`** — if the exception implements this interface, traceweave calls
-   `copyWithCause(original)` on it. This is the zero-config path for exception types you own: the type
+   `copyAsCause()` on it. This is the zero-config path for exception types you own: the type
    guarantees its own copy, no registration needed, and you copy any custom fields yourself.
 2. **A registered copier** — a copier contributed for that exact type via `TraceWeave.register` or a
    `TraceWeaveCopierProvider` service. This is the path for third-party types you don't own.
@@ -128,6 +128,16 @@ TraceWeave.configure {
     reflectionCopy = true       // allow COPY's reflection fallback; off by default
 }
 ```
+
+**Mode-specific shorthands.** To select a built-in mode with all defaults, skip the builder entirely:
+
+```kotlin
+TraceWeave.configureInPlace()   // == configure { mode = Mode.INPLACE }
+TraceWeave.configureCopy()      // == configure { mode = Mode.COPY }, defaults for the COPY knobs
+```
+
+These take no arguments. To tune the COPY knobs (`reflectionCopy`, `copySeedFrames`) or supply a custom
+`strategy`, use the full `configure { }` shown above.
 
 To take full control, supply your own `ModeStrategy`. Setting a `strategy` overrides `mode` entirely
 (equivalent to `Mode.CUSTOM`):

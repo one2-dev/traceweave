@@ -49,7 +49,20 @@ object TraceWeave {
       builder.strategy
         ?: builder.mode.builtInStrategy()
         ?: error("Mode.CUSTOM requires a strategy; set one via configure { strategy = ... }")
-    val cfg = TraceWeaveConfig(strategy, builder.reflectionCopy, builder.copySeedFrames)
+    install(TraceWeaveConfig(strategy, builder.reflectionCopy, builder.copySeedFrames))
+  }
+
+  /** Activates INPLACE mode with all defaults. Customization goes through [configure]. */
+  fun configureInPlace() =
+    install(TraceWeaveConfig(InplaceMode, reflectionCopy = false, copySeedFrames = Copy.DEFAULT_SEED_FRAMES))
+
+  /** Activates COPY mode with all defaults. Tune reflectionCopy/copySeedFrames via [configure]. */
+  fun configureCopy() =
+    install(TraceWeaveConfig(CopyMode, reflectionCopy = false, copySeedFrames = Copy.DEFAULT_SEED_FRAMES))
+
+  // Installs a freshly built policy, last-wins. A second install logs a soft warning rather than failing,
+  // since tests (and re-entry via the mode-specific shorthands) legitimately reconfigure.
+  private fun install(cfg: TraceWeaveConfig) {
     if (configRef.getAndSet(cfg) != null) {
       logger.warn(Message.RECONFIGURE_WARNING)
     }

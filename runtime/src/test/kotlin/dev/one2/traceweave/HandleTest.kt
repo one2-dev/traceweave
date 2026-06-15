@@ -1,6 +1,7 @@
 package dev.one2.traceweave
 
 import dev.one2.traceweave.TraceWeave.configure
+import dev.one2.traceweave.TraceWeave.configureInPlace
 import dev.one2.traceweave.TraceWeave.handle
 import dev.one2.traceweave.TraceWeave.reset
 import dev.one2.traceweave.constant.Configuration
@@ -42,6 +43,15 @@ class HandleTest {
   @Test
   fun inplaceInsertsFrameOnceConfigured() {
     configure { mode = Mode.INPLACE }
+    val error = TestHelper.error()
+    val result = TestHelper.handleDefault(error)
+    assertSame(error, result)
+    assertTrue(error.stackTrace.any { it.className == TestHelper.CLASS && it.methodName == TestHelper.METHOD })
+  }
+
+  @Test
+  fun configureInPlaceActivatesInplaceWithDefaults() {
+    configureInPlace()
     val error = TestHelper.error()
     val result = TestHelper.handleDefault(error)
     assertSame(error, result)

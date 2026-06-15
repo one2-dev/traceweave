@@ -1,6 +1,7 @@
 package dev.one2.traceweave
 
 import dev.one2.traceweave.TraceWeave.configure
+import dev.one2.traceweave.TraceWeave.configureCopy
 import dev.one2.traceweave.TraceWeave.handle
 import dev.one2.traceweave.TraceWeave.reset
 import dev.one2.traceweave.constant.Copy
@@ -42,6 +43,17 @@ class CopyTest {
     assertTrue(result.stackTrace.any { it.className == TestHelper.CLASS && it.methodName == TestHelper.METHOD })
     assertTrue(result.stackTrace.any { it.className == Copy.MARKER })
     assertEquals(originalFrames, original.stackTrace.toList())
+  }
+
+  @Test
+  fun configureCopyActivatesCopyWithDefaults() {
+    configureCopy()
+    val original = IllegalStateException(TestHelper.MESSAGE)
+    val result = TestHelper.handleDefault(original)
+    assertIs<IllegalStateException>(result)
+    assertNotSame(original, result)
+    assertSame(original, result.cause)
+    assertTrue(result.stackTrace.any { it.className == Copy.MARKER })
   }
 
   @Test
@@ -170,16 +182,16 @@ private class OrderFailed(
   cause: Throwable? = null,
 ) : RuntimeException(message, cause),
   TraceWeaveException {
-  override fun copyWithCause(cause: Throwable): Throwable = OrderFailed(message ?: "", cause)
+  override fun copyAsCause(): Throwable = OrderFailed(message ?: "", this)
 }
 
-// copyWithCause hands back an instance built with writableStackTrace = false, so traceweave cannot
+// copyAsCause hands back an instance built with writableStackTrace = false, so traceweave cannot
 // stamp frames onto it -- the empty-copy guard must kick in and the original is used.
 private class UnwritableOwned(
   message: String,
 ) : RuntimeException(message),
   TraceWeaveException {
-  override fun copyWithCause(cause: Throwable): Throwable = object : RuntimeException(message, cause, true, false) {}
+  override fun copyAsCause(): Throwable = object : RuntimeException(message, this@UnwritableOwned, true, false) {}
 }
 
 // No built-in copier and not TraceWeaveException -> COPY must pass it through untouched.
