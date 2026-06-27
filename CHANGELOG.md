@@ -4,6 +4,18 @@ All notable changes to traceweave are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3]
+
+A bug-fix release. The compiler plugin no longer chokes on classes that use interface delegation.
+
+### Fixed
+
+- **Interface-delegation members are no longer instrumented.** For `class C(d) : I by d`, the compiler
+  synthesizes a member that forwards each interface call to the delegate. These synthetic members carry
+  no real source offsets, so weaving a frame around their forwarding suspend call produced broken
+  codegen. The plugin now skips `DELEGATED_MEMBER`-origin declarations; genuine user-written overrides
+  are still traced as before.
+
 ## [0.1.2]
 
 A small runtime-API cleanup release. The owned-exception copy contract drops a parameter that could only
