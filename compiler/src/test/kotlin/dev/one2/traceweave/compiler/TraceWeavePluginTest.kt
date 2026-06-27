@@ -105,6 +105,37 @@ class TraceWeavePluginTest {
     }
   }
 
+  @Test
+  fun synthesizedInterfaceDelegateIsNotInstrumented() {
+    // `class CachingRepo(...) : Repo by delegate` makes the compiler synthesize a `load` member that
+    // just forwards to `delegate.load(id)`. That synthetic member has DELEGATED_MEMBER origin and
+    // synthetic source offsets -- wrapping its forwarding suspend call breaks codegen. The plugin must
+    // leave it alone.
+    val records = mutableListOf<OffsetRecord>()
+    val result = compile(delegationSource(), extraRegistrars = listOf(CaptureRegistrar(records)))
+    assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode, result.messages)
+    assertTrue(records.isEmpty(), "the synthetic delegated suspend call was wrapped: $records")
+  }
+
+  // An annotated class that delegates a suspend interface method via `by`. The only suspend call in the
+  // module is the compiler-synthesized forwarding call inside the delegated `load` member.
+  private fun delegationSource(): SourceFile =
+    SourceFile.kotlin(
+      "Sample.kt",
+      """
+      package sample
+
+      import dev.one2.traceweave.annotation.TraceWeave
+
+      interface Repo {
+        suspend fun load(id: String): String
+      }
+
+      @TraceWeave
+      class CachingRepo(private val delegate: Repo) : Repo by delegate
+      """.trimIndent(),
+    )
+
   private fun source(annotated: Boolean): SourceFile {
     val mark = if (annotated) "@TraceWeave" else ""
     return SourceFile.kotlin(

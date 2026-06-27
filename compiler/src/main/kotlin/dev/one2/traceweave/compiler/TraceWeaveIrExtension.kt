@@ -63,6 +63,12 @@ private fun IrFunction.isTraceFrame(
   prefixes: List<String>,
   excluded: List<String>,
 ): Boolean {
+  // Compiler-synthesized interface-delegation members (`class C(d) : I by d`) just forward to the
+  // delegate and carry synthetic source offsets -- wrapping their forwarding suspend call builds an
+  // IrTry on bogus offsets and breaks codegen. Never treat them as a trace frame.
+  if (origin == IrDeclarationOrigin.DELEGATED_MEMBER) {
+    return false
+  }
   if (excluded.isNotEmpty() && ownerFqn().matchesAnyPrefix(excluded)) {
     return false
   }
